@@ -196,7 +196,7 @@ namespace ZappingStreamingDBService
 
             foreach (var lote in todosLosVideosIds)
             {
-                var videoRequest = _youtubeService.Videos.List("snippet");
+                var videoRequest = _youtubeService.Videos.List("snippet,contentDetails");
                 videoRequest.Id = string.Join(",", lote);
 
                 var videoResponse = await videoRequest.ExecuteAsync(cancellationToken);
@@ -205,7 +205,7 @@ namespace ZappingStreamingDBService
                 {
                     foreach (var video in videoResponse.Items)
                     {
-                        if (video.Snippet?.LiveBroadcastContent == "live")
+                        if (video.Snippet?.LiveBroadcastContent == "live" && video.ContentDetails.Duration == "P0D")
                         {
                             videosEnVivo.Add(video.Id, video);
                         }
