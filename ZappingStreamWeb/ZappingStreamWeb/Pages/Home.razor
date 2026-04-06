@@ -1,0 +1,1103 @@
+﻿@page "/"
+@using System.Text
+@using System.Globalization
+@using ZappingStreamWebServer.Service
+@inject ZappingStreamWebServer.Service.ZappingStreamService ChannelService
+@inject NavigationManager NavManager
+@inject IJSRuntime JSRuntime
+@inject HttpClient Http
+
+<PageTitle>Zapping Stream - El universo del streaming argentino</PageTitle>
+
+<div class="zapping-container">
+
+    @* --- SECCIÓN FIJA (HEADER + BUSCADOR) --- *@
+    <div class="sticky-top-section">
+
+        @* NUEVO: Botón de Información en la esquina superior derecha *@
+        <button class="info-btn" title="¿Cómo funciona?" @onclick="AbrirModalInfo">
+            ?
+        </button>
+
+        <header class="zapping-header">
+            <img src="images/logo.png" alt="Zapping Stream" class="app-logo" />
+        </header>
+
+        <div class="search-container">
+            <input type="text"
+                   class="search-input"
+                   placeholder="Buscar por canal o ciudad..."
+                   @bind="SearchText"
+                   @bind:event="oninput" />
+        </div>
+
+        @* --- NUEVO: INDICADOR DE ÚLTIMA SINCRONIZACIÓN --- *@
+        @if (_metadata != null && !string.IsNullOrEmpty(_metadata.LastSynced.ToString()))
+        {
+            <div class="sync-info">
+                <span class="sync-dot"></span> 
+                Sincronizado: @FormatearSincro(_metadata.LastSynced.ToString())
+            </div>
+        }
+    </div>
+
+    @* --- MODAL DE INFORMACIÓN (CÓMO USAR) --- *@
+    @if (_mostrarModalInfo)
+    {
+        <div class="modal-overlay" @onclick="CerrarModalInfo">
+            <div class="modal-content info-modal" @onclick:stopPropagation>
+                <button class="close-modal-btn" @onclick="CerrarModalInfo">X</button>
+                <h3 class="modal-title">¿Qué es Zapping Stream?</h3>
+
+                <div class="info-body">
+                    <p><strong>Zapping Stream</strong> reúne todos los canales de streaming de Argentina en un solo lugar. El objetivo principal es federalizar el contenido y hacer accesible todo lo que se está produciendo actualmente en el país.</p>
+
+                    <p>El sitio interactúa directo con YouTube: si hacés clic en una tarjeta, te lleva derecho a la transmisión en vivo. Y si en ese momento no están en directo, te redirige a su perfil para que ver el contenido on-demand.</p>
+
+                    <p>Podés buscar tanto por nombre del canal como por ciudad. Con esto buscamos darle visibilidad y alentar a los medios pequeños de comunicación a que se animen a armar su propio canal de streaming desde sus ciudades.</p>
+                </div>
+
+                <button class="submit-btn" style="margin-top: 20px;" @onclick="CerrarModalInfo">Volver</button>
+            </div>
+        </div>
+    }
+
+    @* --- MODAL DE SOLICITUD DE CANAL --- *@
+    @if (_mostrarModal)
+    {
+        <div class="modal-overlay" @onclick="CerrarModalSolicitud">
+            <div class="modal-content" @onclick:stopPropagation>
+                <button class="close-modal-btn" @onclick="CerrarModalSolicitud">X</button>
+                <h3 class="modal-title">Solicitar Nuevo Canal</h3>
+
+                @if (_solicitudEnviada)
+                {
+                    <div class="success-message">
+                        <p>¡Gracias! Tu solicitud fue enviada y la revisaremos pronto.</p>
+                        <button class="submit-btn" @onclick="CerrarModalSolicitud">Cerrar</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="form-group">
+                        <label>Nombre del Canal</label>
+                        <input type="text" class="form-input" @bind="_nuevaSolicitud.Nombre" placeholder="Ej: Olga, Luzu, etc." />
+                    </div>
+                    <div class="form-group">
+                        <label>Link de Youtube</label>
+                        <input type="text" class="form-input" @bind="_nuevaSolicitud.YTLink" placeholder="URL de YouTube" />
+                    </div>
+                    <div class="form-group">
+                        <label>Ciudad</label>
+                        <input type="text" class="form-input" @bind="_nuevaSolicitud.Ciudad" placeholder="Ej: Rosario, Buenos Aires, Resistencia, etc." />
+                    </div>
+                    <div class="form-group">
+                        <label>Comentario adicional (Opcional)</label>
+                        <textarea class="form-input" @bind="_nuevaSolicitud.Mensaje" rows="3" placeholder="¿Qué transmiten? ¿Quiénes son?"></textarea>
+                    </div>
+
+                    <button class="submit-btn" @onclick="EnviarSolicitud" disabled="@_enviando">
+                        @(_enviando ? "Enviando..." : "Enviar Solicitud")
+                    </button>
+
+                    @if (!string.IsNullOrEmpty(_errorValidacion))
+                    {
+                        <p class="error-message">@_errorValidacion</p>
+                    }
+                }
+            </div>
+        </div>
+    }
+
+    @* --- CUERPO PRINCIPAL --- *@
+    @if (_isLoading)
+    {
+        <div class="status-message">
+            <div class="spinner"></div>
+            <p>Conectando con el universo del stream argentino...</p>
+        </div>
+    }
+    else if (_channels == null || !_channels.Any())
+    {
+        <div class="status-message">
+            <p>No se encontraron canales configurados en Firebase.</p>
+        </div>
+    }
+    else
+    {
+        void RenderCategory(string title, IEnumerable<FirebaseChannel> categoryChannels)
+        {
+            if (categoryChannels.Any())
+            {
+                <h2 class="category-title">@title</h2>
+                <div class="channel-row">
+                    @foreach (var channel in categoryChannels)
+                    {
+                        <div class="card-wrapper">
+                            <div class="channel-card @(IsExpanded(channel.ChannelName) ? "expanded-card" : null)"
+                                 tabindex="0"
+                                 @onclick="() => AbrirCanal(channel)">
+
+                                <div class="card-header">
+                                    <div class="title-group">
+                                        @* NUEVO: Mini logo a la izquierda si está en vivo *@
+                                        @if (channel.ChannelLive && !string.IsNullOrEmpty(channel.ChannelImgUrl))
+                                        {
+                                            <img src="@channel.ChannelImgUrl" alt="Logo" class="header-mini-logo" loading="lazy" />
+                                        }
+                                        <h3 class="channel-title">@channel.ChannelName</h3>
+                                    </div>
+                                    <button class="toggle-info-btn" @onclick:stopPropagation @onclick="() => ToggleInfo(channel.ChannelName)">
+                                        @(IsExpanded(channel.ChannelName) ? "Ocultar" : "Info")
+                                    </button>
+                                </div>
+
+                                <div class="image-container">
+                                    @* Lógica actualizada: Si está en vivo usa la imagen del stream, sino el logo *@
+                                    @if (channel.ChannelLive && !string.IsNullOrEmpty(channel.ChannelImgLiveUrl))
+                                    {
+                                        <img src="@channel.ChannelImgLiveUrl" alt="@channel.ChannelName" class="channel-logo" loading="lazy" referrerpolicy="no-referrer" />
+                                    }
+                                    else if (!string.IsNullOrEmpty(channel.ChannelImgUrl))
+                                    {
+                                        <img src="@channel.ChannelImgUrl" alt="@channel.ChannelName" class="channel-logo" loading="lazy" referrerpolicy="no-referrer" />
+                                    }
+                                    else
+                                    {
+                                        <div class="fallback-logo">
+                                            <span>@(string.IsNullOrEmpty(channel.ChannelName) ? "?" : channel.ChannelName.Substring(0, 1).ToUpper())</span>
+                                        </div>
+                                    }
+
+                                    @* --- CARTELITO DE EN VIVO --- *@
+                                    @if (channel.ChannelLive)
+                                    {
+                                        <div class="badge-vivo">
+                                            <span class="punto-rojo"></span> EN VIVO
+                                        </div>
+                                    }
+                                </div>
+                                @* --- NUEVO: ÚLTIMA ACTIVIDAD --- *@
+                                <div class="last-activity-container">
+                                    <span class="last-activity-text">
+                                        @ObtenerTextoActividad(channel)
+                                    </span>
+                                </div>
+
+                                @if (IsExpanded(channel.ChannelName))
+                                {
+                                    <div class="channel-description" @onclick:stopPropagation>
+                                        <h4 class="full-title-info">@channel.ChannelName</h4>
+                                        @if (!string.IsNullOrEmpty(channel.ChannelCity))
+                                        {
+                                            <p class="city-tag">📍 @channel.ChannelCity</p>
+                                        }
+                                        <p>@(string.IsNullOrEmpty(channel.ChannelDescription) ? "Sin descripción disponible." : channel.ChannelDescription)</p>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+
+        RenderCategory("Full Stream", Streams);
+        RenderCategory("Personal", PersonalStreams);
+        RenderCategory("Televisión", Televisions);
+        RenderCategory("Radio", Radios);
+    }
+
+    @if (!FilteredChannels.Any() && !_isLoading)
+    {
+        <div class="status-message">
+            <p>No hay resultados para "@SearchText"</p>
+        </div>
+    }
+
+    @* --- FOOTER / BOTÓN DE SOLICITUD --- *@
+    @if (!_isLoading)
+    {
+        <div class="footer-section">
+            <button class="request-channel-btn" @onclick="AbrirModalSolicitud">
+                Si tu canal no aparece en la lista, podés solicitarlo acá
+            </button>
+        </div>
+    }
+
+    @* --- OVERLAY OSCURO DE FONDO --- *@
+    @if (_expandedChannels.Any())
+    {
+        <div class="fullscreen-overlay" @onclick="CerrarTodasLasTarjetas"></div>
+    }
+</div>
+
+@* --- ESTILOS CSS LOCALES --- *@
+<style>
+    ::deep * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    .last-activity-container {
+        margin-top: 5px;
+        text-align: center;
+    }
+
+    .last-activity-text {
+        font-size: 0.8rem;
+        color: #aaa;
+        background-color: #222;
+        padding: 4px 10px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        border: 1px solid #333;
+    }
+
+    .zapping-container {
+        min-height: 100vh;
+        background-color: #000;
+        color: #fff;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        padding: 0 20px 20px 20px;
+        overflow-x: hidden;
+        display: flex;
+        flex-direction: column;
+        /* NUEVO: Le ponemos un cepo al contenedor principal */
+        width: 100%;
+        max-width: 100vw;
+    }
+
+    .sticky-top-section {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background-color: #000;
+        padding-top: 20px;
+        margin-left: -20px;
+        margin-right: -20px;
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    /* NUEVO: Botón de Información (?) */
+    .info-btn {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background-color: transparent;
+        color: #38B6FF;
+        border: 2px solid #38B6FF;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        z-index: 101;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+        .info-btn:hover {
+            background-color: #38B6FF;
+            color: #000;
+            box-shadow: 0 0 10px #0a30b4;
+            transform: scale(1.1);
+        }
+
+    /* Contenedor para centrar el botón al fondo */
+    .footer-section {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        padding: 40px 0 20px 0;
+        margin-top: auto;
+    }
+
+    .request-channel-btn {
+        background-color: transparent;
+        color: #38B6FF;
+        border: 2px solid #38B6FF;
+        padding: 12px 25px;
+        border-radius: 30px;
+        font-size: 1rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+        .request-channel-btn:hover {
+            background-color: #38B6FF;
+            color: #000;
+            box-shadow: 0 0 15px ;
+            transform: translateY(-2px);
+        }
+
+    /* Estilos del Modal */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(0, 0, 0, 0.85);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 2000;
+    }
+
+    .modal-content {
+        background-color: #111;
+        border: 2px solid #38B6FF;
+        border-radius: 15px;
+        padding: 30px;
+        width: 90vw;
+        max-width: 400px;
+        position: relative;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 15px #0a30b4;
+    }
+
+    /* Estilos específicos del Modal de Info */
+    .info-modal {
+        max-width: 500px;
+    }
+
+    .info-body {
+        color: #ddd;
+        font-size: 1rem;
+        line-height: 1.5;
+    }
+
+    .info-subtitle {
+        color: #38B6FF;
+        margin: 20px 0 10px 0;
+        font-size: 1.1rem;
+    }
+
+    .info-list {
+        list-style: none;
+        padding-left: 0;
+    }
+
+        .info-list li {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .info-list span {
+            font-size: 1.2rem;
+        }
+
+    .close-modal-btn {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: none;
+        border: none;
+        color: #fff;
+        font-size: 1.2rem;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+
+        .close-modal-btn:hover {
+            color: #38B6FF;
+        }
+
+    .modal-title {
+        color: #38B6FF;
+        margin-bottom: 20px;
+        text-align: center;
+        font-size: 1.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+
+    .form-input {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #333;
+        background-color: #222;
+        color: #fff;
+        font-family: inherit;
+        outline: none;
+        transition: border-color 0.3s;
+    }
+
+        .form-input:focus {
+            border-color: #38B6FF;
+        }
+
+    .submit-btn {
+        width: 100%;
+        padding: 12px;
+        background-color: #38B6FF;
+        color: #000;
+        border: none;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background-color 0.3s, transform 0.1s;
+        margin-top: 10px;
+    }
+
+        .submit-btn:hover:not(:disabled) {
+            background-color: #0a30b4;
+        }
+
+        .submit-btn:disabled {
+            background-color: #555;
+            color: #888;
+            cursor: not-allowed;
+        }
+
+    .success-message {
+        text-align: center;
+        color: #fff;
+        padding: 20px 0;
+    }
+
+    .error-message {
+        color: #ff4d4d;
+        font-size: 0.85rem;
+        margin-top: 10px;
+        text-align: center;
+    }
+
+    .zapping-header {
+        display: flex;
+        justify-content: center;
+        position: relative;
+    }
+
+    html, body {
+        margin: 0;
+        padding: 0;
+        background-color: #000;
+        user-select: none;
+    }
+
+    .app-logo {
+        height: 25vh;
+        max-height: 500px;
+        width: 50vw;
+        max-width: 500px;
+    }
+
+    .search-container {
+        max-width: 600px;
+        margin: 0 auto 30px auto;
+        display: flex;
+        justify-content: center;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 15px 20px;
+        border-radius: 30px;
+        border: 2px solid #333;
+        background-color: #111;
+        color: #fff;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+        outline: none;
+    }
+
+        .search-input:focus {
+            border-color: #38B6FF;
+            box-shadow: 0 0 10px rgba(206, 241, 150, 0.3);
+        }
+
+    .category-title {
+        color: #38B6FF;
+        margin: 40px 0 20px 0;
+        width: 100%;
+        font-size: 1.8rem;
+        font-weight: bold;
+        border-bottom: 2px solid #333;
+        padding-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+
+    .channel-row {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 20px;
+        /* NUEVO: Evitamos que la fila empuje los bordes de la pantalla */
+        width: 100%;
+        max-width: 100%;
+        min-width: 0; /* ESTA ES LA MAGIA que frena a Flexbox */
+        padding-bottom: 40px;
+        padding-top: 5px;
+        cursor: grab;
+        user-select: none;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: #38B6FF #222;
+    }
+        .channel-row:active {
+            cursor: grabbing;
+        }
+
+        .channel-row::-webkit-scrollbar {
+            height: 10px;
+        }
+
+        .channel-row::-webkit-scrollbar-track {
+            background: #222;
+            border-radius: 5px;
+        }
+
+        .channel-row::-webkit-scrollbar-thumb {
+            background-color: #38B6FF;
+            border-radius: 5px;
+        }
+
+    .title-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        overflow: hidden; 
+        flex-grow: 1;
+    }
+
+    .header-mini-logo {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+        border: 1px solid #38B6FF;
+        box-shadow: 0 0 5px rgba(56, 182, 255, 0.5);
+    }
+
+    .card-wrapper {
+        flex: 0 0 auto;
+        width: 320px;
+        min-height: 310px;
+        position: relative;
+    }
+
+    .channel-card {
+        background-color: #111;
+        border: 2px solid #38B6FF;
+        border-radius: 15px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, background-color 0.2s ease-out, border-color 0.2s ease-out;
+        width: 320px;
+        position: relative;
+        z-index: 1;
+    }
+
+        .channel-card:focus:not(.expanded-card), .channel-card:hover:not(.expanded-card) {
+            background-color: #555;
+            border-color: #fff;
+            transform: scale(1.02);
+            outline: none;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
+
+    .expanded-card {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 90vw;
+        max-width: 450px;
+        max-height: 85vh;
+        overflow-y: auto;
+        z-index: 9999;
+        background-color: #1a1a1a;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 20px rgba(206, 241, 150, 0.4);
+        transform: translate(-50%, -50%);
+        border-color: #fff;
+        cursor: default;
+    }
+
+        .expanded-card::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .expanded-card::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .expanded-card::-webkit-scrollbar-thumb {
+            background-color: #38B6FF;
+            border-radius: 4px;
+        }
+
+    .fullscreen-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(0, 0, 0, 0.7);
+        z-index: 900;
+        cursor: pointer;
+    }
+
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .channel-title {
+        font-size: 1.4rem;
+        font-weight: bold;
+        color: #fff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex-grow: 1;
+    }
+
+    .expanded-card .channel-title {
+        white-space: normal;
+        overflow: visible;
+    }
+
+    .toggle-info-btn {
+        background-color: transparent;
+        color: #38B6FF;
+        border: 1px solid #38B6FF;
+        padding: 5px 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+
+        .toggle-info-btn:hover {
+            background-color: #38B6FF;
+            color: #000;
+        }
+
+    .image-container {
+        width: 100%;
+        aspect-ratio: 16 / 10;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #000;
+        border-radius: 8px;
+        overflow: hidden;
+        flex-shrink: 0;
+        position: relative; /* ¡CLAVE PARA QUE EL CARTEL NO SE ESCAPE! */
+    }
+
+    /* --- ESTILOS DEL CARTEL "EN VIVO" --- */
+    .badge-vivo {
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
+        background-color: rgba(204, 0, 0, 0.9);
+        color: white;
+        font-size: 0.75rem;
+        font-weight: bold;
+        padding: 4px 8px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.7);
+        pointer-events: none;
+        z-index: 2;
+    }
+
+    .punto-rojo {
+        width: 6px;
+        height: 6px;
+        background-color: white;
+        border-radius: 50%;
+        display: inline-block;
+        animation: titilar 1.2s infinite alternate;
+    }
+
+    @@keyframes titilar {
+        from
+
+    {
+        opacity: 1;
+        box-shadow: 0 0 5px white;
+    }
+
+    to {
+        opacity: 0.3;
+        box-shadow: none;
+    }
+
+    }
+
+    .channel-logo {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        -webkit-user-drag: none;
+        user-drag: none;
+    }
+
+    .fallback-logo {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #333;
+        font-size: 3rem;
+        font-weight: bold;
+        color: #38B6FF;
+        -webkit-user-drag: none;
+        user-drag: none;
+    }
+
+    .channel-description {
+        background-color: #222;
+        padding: 15px;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        color: #ddd;
+        border-left: 3px solid #38B6FF;
+        animation: slideDown 0.3s ease-out forwards;
+        cursor: default;
+        max-height: 25vh;
+        overflow-y: auto;
+        white-space: pre-wrap;
+    }
+
+    .city-tag {
+        font-weight: bold;
+        color: #38B6FF;
+        margin-bottom: 8px;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .sync-info {
+        text-align: center;
+        font-size: 0.75rem;
+        color: #888;
+        margin-top: -15px; /* Lo pega un poco más al buscador */
+        margin-bottom: 15px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 6px;
+        letter-spacing: 0.5px;
+    }
+
+    .sync-dot {
+        width: 6px;
+        height: 6px;
+        background-color: #28a745; /* Verde conexión */
+        border-radius: 50%;
+        display: inline-block;
+        box-shadow: 0 0 5px rgba(40, 167, 69, 0.5);
+    }
+
+    @@keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .status-message {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 50vh;
+        gap: 20px;
+        font-size: 1.2rem;
+        text-align: center;
+    }
+
+    .spinner {
+        border: 4px solid rgba(255, 255, 255, 0.1);
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        border-left-color: #38B6FF;
+        animation: spin 1s linear infinite;
+    }
+
+    @@keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+
+
+@code {
+    private List<FirebaseChannel>? _channels;
+    private FirebaseDBMeta? _metadata;
+    private bool _isLoading = true;
+
+    // --- VARIABLES PARA EL MODAL DE SOLICITUD ---
+    private bool _mostrarModal = false;
+    private bool _enviando = false;
+    private bool _solicitudEnviada = false;
+    private string _errorValidacion = "";
+    private SolicitudCanal _nuevaSolicitud = new();
+
+    // --- VARIABLES PARA EL MODAL DE INFORMACIÓN ---
+    private bool _mostrarModalInfo = false;
+
+    private class SolicitudCanal
+    {
+        public string Nombre { get; set; } = "";
+        public string YTLink { get; set; } = "";
+        public string Ciudad { get; set; } = "";
+        public string Mensaje { get; set; } = "";
+    }
+
+    private string _searchText = "";
+    private string SearchText
+    {
+        get => _searchText;
+        set { _searchText = value; }
+    }
+
+    private static string RemoveDiacritics(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return text;
+
+        var normalizedString = text.Normalize(NormalizationForm.FormD);
+        var stringBuilder = new StringBuilder(capacity: normalizedString.Length);
+
+        for (int i = 0; i < normalizedString.Length; i++)
+        {
+            char c = normalizedString[i];
+            var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
+            if (unicodeCategory != UnicodeCategory.NonSpacingMark)
+            {
+                stringBuilder.Append(c);
+            }
+        }
+
+        return stringBuilder.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    private IEnumerable<FirebaseChannel> FilteredChannels
+    {
+        get
+        {
+            if (_channels == null) return new List<FirebaseChannel>();
+
+            if (string.IsNullOrWhiteSpace(SearchText)) return _channels;
+
+            var cleanSearchText = RemoveDiacritics(SearchText.Trim()).ToLowerInvariant();
+
+            return _channels.Where(c =>
+            {
+                var cleanName = RemoveDiacritics(c.ChannelName ?? "").ToLowerInvariant();
+                var cleanCity = RemoveDiacritics(c.ChannelCity ?? "").ToLowerInvariant();
+
+                return cleanName.Contains(cleanSearchText) || cleanCity.Contains(cleanSearchText);
+            });
+        }
+    }
+
+    private IEnumerable<FirebaseChannel> Streams => FilteredChannels
+            .Where(c => c.ChannelType != null && c.ChannelType.Contains("stream", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(c => c.ChannelLive)
+            .ThenByDescending(c => c.LastActivityAt);
+
+    private IEnumerable<FirebaseChannel> PersonalStreams => FilteredChannels
+        .Where(c => c.ChannelType != null && c.ChannelType.Contains("personal", StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(c => c.ChannelLive)
+        .ThenByDescending(c => c.LastActivityAt);
+
+    private IEnumerable<FirebaseChannel> Televisions => FilteredChannels
+        .Where(c => c.ChannelType != null && c.ChannelType.Contains("television", StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(c => c.ChannelLive)
+        .ThenByDescending(c => c.LastActivityAt);
+
+    private IEnumerable<FirebaseChannel> Radios => FilteredChannels
+        .Where(c => c.ChannelType != null && c.ChannelType.Contains("radio", StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(c => c.ChannelLive)
+        .ThenByDescending(c => c.LastActivityAt);
+
+    private HashSet<string> _expandedChannels = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _channels = await ChannelService.GetChannelsAsync();
+        _metadata = await ChannelService.GetLastSyncDateTime();
+
+        _isLoading = false;
+    }
+
+    private async Task AbrirCanal(FirebaseChannel canal)
+    {
+        if (!string.IsNullOrEmpty(canal.ChannelLiveUrl))
+        {
+            await JSRuntime.InvokeVoidAsync("open", canal.ChannelLiveUrl, "_blank");
+        }
+    }
+
+    private void ToggleInfo(string channelName)
+    {
+        var safeName = channelName ?? string.Empty;
+        if (!_expandedChannels.Contains(safeName))
+        {
+            _expandedChannels.Clear();
+            _expandedChannels.Add(safeName);
+        }
+        else
+        {
+            _expandedChannels.Remove(safeName);
+        }
+    }
+
+    private void CerrarTodasLasTarjetas()
+    {
+        _expandedChannels.Clear();
+    }
+
+    private bool IsExpanded(string channelName) => _expandedChannels.Contains(channelName ?? string.Empty);
+
+    // --- MÉTODOS DEL MODAL DE INFORMACIÓN ---
+    private void AbrirModalInfo()
+    {
+        _mostrarModalInfo = true;
+    }
+
+    private void CerrarModalInfo()
+    {
+        _mostrarModalInfo = false;
+    }
+
+    // --- MÉTODOS DEL MODAL DE SOLICITUD ---
+    private void AbrirModalSolicitud()
+    {
+        _nuevaSolicitud = new SolicitudCanal();
+        _solicitudEnviada = false;
+        _errorValidacion = "";
+        _mostrarModal = true;
+    }
+
+    private string ObtenerTextoActividad(FirebaseChannel canal)
+    {        
+        // .ToLocalTime() adapta la hora automáticamente a la de la PC/celular del usuario
+        return $"Ultima Actividad: {canal.LastActivityAt.ToLocalTime().ToString("dd/MM/yy - HH:mm")} hs";       
+    }
+
+    private void CerrarModalSolicitud()
+    {
+        _mostrarModal = false;
+    }
+
+    private string FormatearSincro(string lastSynced)
+    {
+        // Asumir que el string está en UTC si no tiene zona
+        if (DateTimeOffset.TryParse(lastSynced, null, System.Globalization.DateTimeStyles.AssumeUniversal, out var fecha))
+        {
+            var ahora = DateTimeOffset.Now;
+            var diff = ahora - fecha; // fecha ya es UTC, ahora es local con offset, la resta funciona
+            var minutos = diff.TotalMinutes;
+
+            if (minutos < 0) return "---"; // o podrías devolver "---"
+            if (minutos < 1) return "ahora mismo";
+            if (minutos < 60) return $"hace {Math.Floor(minutos)} min";
+
+            // Mostrar hora local de la última sincro
+            return fecha.ToLocalTime().ToString("HH:mm") + " hs";
+        }
+        return "---";
+    }
+
+    private async Task EnviarSolicitud()
+    {
+        _errorValidacion = "";
+
+        if (string.IsNullOrWhiteSpace(_nuevaSolicitud.Nombre) || string.IsNullOrWhiteSpace(_nuevaSolicitud.YTLink))
+        {
+            _errorValidacion = "Por favor, completá el nombre y el link del canal.";
+            return;
+        }
+
+        try
+        {
+            // --- CONTROL DE SPAM POR LOCAL STORAGE ---
+            var spamCountStr = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "zapping_solicitudes");
+            int spamCount = string.IsNullOrEmpty(spamCountStr) ? 0 : int.Parse(spamCountStr);
+
+            if (spamCount >= 3)
+            {
+                _errorValidacion = "¡Epa! Ya enviaste varias solicitudes. Dejanos revisar las que mandaste primero.";
+                return;
+            }
+
+            _enviando = true;
+            StateHasChanged();
+
+            string firebaseUrl = "https://zappingstreaming-default-rtdb.firebaseio.com/Solicitudes.json";
+
+
+            var response = await Http.PostAsJsonAsync(firebaseUrl, _nuevaSolicitud);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Aumentamos el contador en el navegador del usuario si salió todo bien
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "zapping_solicitudes", (spamCount + 1).ToString());
+                _solicitudEnviada = true;
+            }
+            else
+            {
+                _errorValidacion = "No se pudo conectar con el servidor. Intentá más tarde.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorValidacion = "Hubo un error al enviar. Intentá de nuevo más tarde.";
+        }
+        finally
+        {
+            _enviando = false;
+            StateHasChanged();
+        }
+    }
+}

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ZappingStreamWeb</title>
+    <base href="/" />
+    <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link href="ZappingStreamWeb.styles.css" rel="stylesheet" />
+</head>
+
+<body>
+    <div id="app">
+        <svg class="loading-progress">
+            <circle r="40%" cx="50%" cy="50%" />
+            <circle r="40%" cx="50%" cy="50%" />
+        </svg>
+        <div class="loading-progress-text"></div>
+    </div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+
+    <script src="_framework/blazor.webassembly.js"></script>
+
+    <script>
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+        let isDragging = false; // Variable clave para diferenciar clic de arrastre
+
+        // 1. Detectamos cuando el usuario hace clic (aprieta el botón del mouse)
+        document.addEventListener('mousedown', (e) => {
+            const slider = e.target.closest('.channel-row');
+            if (!slider) return; // Si no hizo clic en una fila, no hacemos nada
+
+            isDown = true;
+            isDragging = false; // Asumimos que es un clic hasta que se mueva
+            startX = e.pageX - slider.offsetLeft;
+            scrollLeft = slider.scrollLeft;
+        });
+
+        // 2. Detectamos si el mouse sale de la zona
+        document.addEventListener('mouseleave', (e) => {
+            if (!isDown) return;
+            const slider = e.target.closest('.channel-row');
+            if (slider) isDown = false;
+        });
+
+        // 3. Detectamos cuando el usuario suelta el clic
+        document.addEventListener('mouseup', (e) => {
+            const slider = e.target.closest('.channel-row');
+            if (!slider) return;
+            isDown = false;
+
+            // Le damos un respiro muy cortito antes de resetear el estado de "arrastre"
+            setTimeout(() => {
+                isDragging = false;
+            }, 50);
+        });
+
+        // 4. Detectamos cuando el usuario mueve el mouse
+        document.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            const slider = e.target.closest('.channel-row');
+            if (!slider) return;
+
+            e.preventDefault(); // Evitamos que seleccione texto o imágenes por accidente
+            const x = e.pageX - slider.offsetLeft;
+            const walk = (x - startX) * 1.5; // Multiplicador para que el scroll sea más rápido
+
+            // Si movió el mouse más de 5 píxeles, significa que está arrastrando la fila, no haciendo un clic normal
+            if (Math.abs(walk) > 5) {
+                isDragging = true;
+            }
+
+            slider.scrollLeft = scrollLeft - walk;
+        });
+
+        // 5. Fase de captura (La manipulación crucial): Bloqueamos el clic en la tarjeta si el usuario estaba arrastrando
+        document.addEventListener('click', (e) => {
+            if (isDragging) {
+                e.preventDefault();
+                e.stopPropagation(); // Evita que Blazor ejecute el @onclick y abra el canal
+            }
+        }, true);
+    </script>
+</body>
+
+</html>
