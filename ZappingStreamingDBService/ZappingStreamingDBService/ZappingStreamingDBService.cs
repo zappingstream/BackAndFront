@@ -171,6 +171,8 @@ namespace ZappingStreamingDBService
                 catch (HttpRequestException)
                 {
                     _logger.LogWarning("Feed XML no disponible (404/Error) para el canal {ChannelId}.", channelId);
+                    activeStreams.Add((stream, DateTimeOffset.MinValue, new List<string>()));
+
                 }
                 catch (Exception ex)
                 {
