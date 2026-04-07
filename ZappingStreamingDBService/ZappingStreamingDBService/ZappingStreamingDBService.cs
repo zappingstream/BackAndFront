@@ -129,6 +129,7 @@ namespace ZappingStreamingDBService
 
                 try
                 {
+                    Thread.Sleep(200);
                     string feedUrl = $"https://www.youtube.com/feeds/videos.xml?channel_id={channelId}";
                     string xmlContent = await _httpClient.GetStringAsync(feedUrl, cancellationToken);
 
