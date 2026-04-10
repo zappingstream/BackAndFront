@@ -1,8 +1,6 @@
 name: Cazafantasmas - Upcoming
 
-on:
-  schedule:
-    - cron: '0/21 * * * *' # Cada 21 minutos
+on: # Cada 21 minutos
   workflow_dispatch:
 
 jobs:
