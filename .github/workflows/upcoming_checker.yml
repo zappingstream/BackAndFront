@@ -1,0 +1,22 @@
+name: Cazafantasmas - Upcoming
+
+on:
+  schedule:
+    - cron: '0 */2 * * *' # Cada 2 horas (ej. 00:00, 02:00, 04:00)
+  workflow_dispatch:
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0.x'
+    - name: Run GhostBuster (Upcoming)
+      env:
+        YOUTUBE_APIKEY: ${{ secrets.YOUTUBE_APIKEY }}
+        FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
+      # ¡Fíjate en el argumento "upcoming" al final!
+      run: dotnet run --project ZappingStreamingLiveChecker/ZappingStreamingLiveChecker.csproj -- upcoming
