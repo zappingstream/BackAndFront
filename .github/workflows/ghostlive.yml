@@ -24,7 +24,7 @@ jobs:
           
       # 3. ACÁ VA EL BLOQUE QUE ESTÁBAMOS ARMANDO:
       - name: Correr ZappingGhostBuster
-        run: dotnet run --project ./ZappingStreamingLiveChecker/ZappingStreamingLiveChecker/ZappingStreamingLiveChecker.csproj # <-- Ojo, cambiá la ruta a la real
+        run: dotnet run --project ./ZappingStreamingLiveChecker/ZappingStreamingLiveChecker/ZappingStreamingLiveChecker.csproj --vivos # <-- Ojo, cambiá la ruta a la real
         env:
           YOUTUBE_APIKEY: ${{ secrets.YOUTUBE_APIKEY }}
           FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
