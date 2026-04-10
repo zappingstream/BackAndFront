@@ -31,14 +31,6 @@
                    @bind:event="oninput" />
         </div>
 
-        @* --- NUEVO: INDICADOR DE ÚLTIMA SINCRONIZACIÓN --- *@
-        @if (_metadata != null && !string.IsNullOrEmpty(_metadata.LastSynced.ToString()))
-        {
-            <div class="sync-info">
-                <span class="sync-dot"></span> 
-                Sincronizado: @FormatearSincro(_metadata.LastSynced.ToString())
-            </div>
-        }
     </div>
 
     @* --- MODAL DE INFORMACIÓN (CÓMO USAR) --- *@

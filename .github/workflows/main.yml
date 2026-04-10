@@ -22,15 +22,15 @@ jobs:
         dotnet-version: '8.0.x' 
 
     - name: Restaurar dependencias
-      working-directory: ./ZappingStreamingDBService/ZappingStreamingDBService
+      working-directory: ./ZappingStreamingChannelsResync/ZappingStreamingChannelsResync
       run: dotnet restore
 
     - name: Compilar
-      working-directory: ./ZappingStreamingDBService/ZappingStreamingDBService
+      working-directory: ./ZappingStreamingChannelsResync/ZappingStreamingChannelsResync
       run: dotnet build --no-restore
 
     - name: Ejecutar el servicio
-      working-directory: ./ZappingStreamingDBService/ZappingStreamingDBService
+      working-directory: ./ZappingStreamingChannelsResync/ZappingStreamingChannelsResync
       env:
          YouTube__ApiKey: ${{ secrets.YOUTUBE_APIKEY }}
          Firebase__Secret: ${{ secrets.FIREBASE_SECRET }}

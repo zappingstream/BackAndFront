@@ -1,0 +1,30 @@
+name: Ghost Buster Cron Job
+
+# Cuándo se ejecuta
+on:
+  workflow_dispatch: # Te permite correrlo a mano desde la web de GitHub
+  schedule:
+    - cron: '13 * * * *' # Corre todas las horas a los 13 minutos
+
+# Qué es lo que hace
+jobs:
+  limpiar-fantasmas:
+    runs-on: ubuntu-latest # La máquina virtual que va a usar
+
+    steps:
+      # 1. Trae el código de tu repositorio
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      # 2. Instala .NET en la maquinita de GitHub
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x' # Cambiá esto si usás .NET 6 o 7
+          
+      # 3. ACÁ VA EL BLOQUE QUE ESTÁBAMOS ARMANDO:
+      - name: Correr ZappingGhostBuster
+        run: dotnet run --project ./ZappingStreamingLiveChecker/ZappingStreamingLiveChecker/ZappingStreamingLiveChecker.csproj # <-- Ojo, cambiá la ruta a la real
+        env:
+          YOUTUBE_APIKEY: ${{ secrets.YOUTUBE_APIKEY }}
+          FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
