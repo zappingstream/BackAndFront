@@ -225,7 +225,23 @@ namespace ZappingGhostBusterConsole
                 else if (status == "upcoming")
                 {
                     // El creador viene tarde a su directo, lo dejamos en la lista.
-                    Console.WriteLine($"- {item.ChannelKey}: El programado {item.Video.VideoId} sigue en espera (Creador atrasado).");
+                    if (DateTimeOffset.TryParse(item.Video.ScheduledStartTime, out var scheduledTime))
+                    {
+                        // Calculamos la diferencia en horas contra el momento actual
+                        var horasAtrasado = (ahora - scheduledTime).TotalHours;
+
+                        if (horasAtrasado > 24)
+                        {
+                            // Pasó el límite de tolerancia, es un stream fantasma
+                            Console.WriteLine($"- {item.ChannelKey}: El programado {item.Video.VideoId} superó las 24hs de gracia sin prender. Eliminándolo...");
+                            await upcomingRef.DeleteAsync();
+                        }
+                        else
+                        {
+                            // El creador viene tarde, lo aguantamos porque está dentro de la ventana de 24hs
+                            Console.WriteLine($"- {item.ChannelKey}: El programado {item.Video.VideoId} sigue en espera ({Math.Round(horasAtrasado, 1)} hs de atraso).");
+                        }
+                    }
                 }
             }
         }

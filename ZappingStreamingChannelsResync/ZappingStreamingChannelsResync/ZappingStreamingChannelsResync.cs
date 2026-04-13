@@ -44,6 +44,16 @@ namespace ZappingStreamingDBService
         public bool ChannelLive { get; set; }
         public string LastActivityAt { get; set; }
         public string LiveVideoId { get; set; }
+        public Dictionary<string, UpcomingVideo> Upcoming { get; set; }
+    }
+
+    public class UpcomingVideo
+    {
+        public string VideoId { get; set; }
+        public string Title { get; set; }
+        public string ScheduledStartTime { get; set; }
+        public string ThumbnailUrl { get; set; }
+        public string AddedAt { get; set; }
     }
 
     public class ZappingStreamingDBService : BackgroundService
@@ -165,24 +175,28 @@ namespace ZappingStreamingDBService
                     string lastActivityAnterior = "";
                     string videoLiveIdAnterior = "";
 
+                    // --- NUEVA VARIABLE PARA SALVAR LOS UPCOMING ---
+                    Dictionary<string, UpcomingVideo> upcomingAnterior = null;
+
                     if (canalesExistentes.TryGetValue(firebaseKey, out var canalAnterior))
                     {
                         estabaEnVivo = canalAnterior.ChannelLive;
                         imgLiveUrlAnterior = canalAnterior.ChannelImgLiveUrl ?? "";
 
-                        // 2. CAMBIO ACÁ: Si por algún motivo existía pero estaba vacío, le clavamos el default también
                         lastActivityAnterior = string.IsNullOrEmpty(canalAnterior.LastActivityAt)
                             ? "2000-01-01T00:00:00Z"
                             : canalAnterior.LastActivityAt;
 
                         videoLiveIdAnterior = canalAnterior.LiveVideoId ?? "";
+
+                        // --- RESCATAMOS LA CARPETA UPCOMING ---
+                        upcomingAnterior = canalAnterior.Upcoming;
                     }
                     else
                     {
                         estabaEnVivo = false;
                         imgLiveUrlAnterior = "";
                         lastActivityAnterior = "2000-01-01T00:00:00Z";
-                          
                         videoLiveIdAnterior = "";
                     }
 
@@ -203,7 +217,10 @@ namespace ZappingStreamingDBService
                         ChannelLive = estabaEnVivo,
                         ChannelImgLiveUrl = imgLiveUrlAnterior,
                         LastActivityAt = lastActivityAnterior,
-                        LiveVideoId = videoLiveIdAnterior
+                        LiveVideoId = videoLiveIdAnterior,
+
+                        // --- LE DEVOLVEMOS SUS UPCOMING INTACTOS ---
+                        Upcoming = upcomingAnterior
                     };
                 }
             }
