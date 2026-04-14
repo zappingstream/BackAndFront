@@ -169,7 +169,7 @@ namespace ZappingGhostBusterConsole
             foreach (var lote in videoIds.Chunk(50))
             {
                 // ATENCIÓN: Agregamos "status" a la petición para poder detectar si es Estreno
-                var request = yt.Videos.List("snippet,status");
+                var request = yt.Videos.List("snippet,status,liveStreamingDetails");
                 request.Id = string.Join(",", lote);
                 var response = await request.ExecuteAsync();
 
@@ -187,12 +187,11 @@ namespace ZappingGhostBusterConsole
 
                 var canalRef = firebase.Child("Channels").Child(item.ChannelKey);
                 var upcomingRef = canalRef.Child("Upcoming").Child(item.Video.VideoId);
-                string duracion = ytVideo?.ContentDetails?.Duration ?? "";
 
                 // --- LA MAGIA PARA DETECTAR ESTRENOS ---
                 // Si el estado de subida es "processed", significa que es un archivo de video 
                 // pregrabado (Estreno), no un stream de cámara en vivo.
-                bool esEstreno = duracion != "P0D" && duracion != "PT0S" && !string.IsNullOrEmpty(duracion);
+                bool esEstreno = ytVideo?.LiveStreamingDetails != null && ytVideo?.LiveStreamingDetails?.ConcurrentViewers == null;
 
                 // Si determinamos que es un estreno (ya sea que esté por arrancar o se esté emitiendo), lo eliminamos.
                 if (esEstreno && (status == "upcoming" || status == "live"))
