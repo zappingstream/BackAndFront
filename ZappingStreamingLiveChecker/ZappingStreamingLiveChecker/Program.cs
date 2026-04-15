@@ -9,13 +9,23 @@ using Google.Apis.YouTube.v3;
 
 namespace ZappingGhostBusterConsole
 {
-    // 1. Añadimos el modelo para leer la subcarpeta Upcoming
     public class UpcomingVideo
     {
         public string VideoId { get; set; }
         public string Title { get; set; }
         public string ScheduledStartTime { get; set; }
         public string ThumbnailUrl { get; set; }
+        public string AddedAt { get; set; }
+    }
+
+    // 1. Añadimos el modelo para Actives
+    public class ActiveVideo
+    {
+        public string VideoId { get; set; }
+        public string Title { get; set; }
+        public string ScheduledStartTime { get; set; }
+        public string ThumbnailUrl { get; set; }
+        public string AddedAt { get; set; }
     }
 
     public class FirebaseChannel
@@ -24,8 +34,11 @@ namespace ZappingGhostBusterConsole
         public bool ChannelLive { get; set; }
         public string LiveVideoId { get; set; }
         public string ChannelImgLiveUrl { get; set; }
-        // Agregamos un diccionario para leer los Upcoming de un plumazo
+        public string LastActivityAt { get; set; }
+
+        // Diccionarios para manejar multi-estado
         public Dictionary<string, UpcomingVideo> Upcoming { get; set; }
+        public Dictionary<string, ActiveVideo> Actives { get; set; }
     }
 
     class Program
@@ -53,7 +66,6 @@ namespace ZappingGhostBusterConsole
                 ApplicationName = "ZappingGhostBuster"
             });
 
-            // 2. Leemos el argumento para saber qué modo ejecutar
             string modo = args.Length > 0 ? args[0].ToLower() : "all";
 
             try
@@ -76,14 +88,15 @@ namespace ZappingGhostBusterConsole
             }
         }
 
-        // --- MÓDULO 1: TU CÓDIGO ORIGINAL (Ligeramente encapsulado) ---
+        // --- MÓDULO 1: LIMPIEZA DE VIVOS MULTI-ESTADO ---
         static async Task EjecutarCazaFantasmasVivos(FirebaseClient firebase, YouTubeService yt)
         {
             Console.WriteLine("\n=== INICIANDO LIMPIEZA DE VIVOS CAÍDOS ===");
             var estadoActualFirebase = await firebase.Child("Channels").OnceAsync<FirebaseChannel>();
 
+            // Filtramos canales que tienen al menos un vivo registrado (o que quedaron trabados en legacy)
             var canalesEnVivo = estadoActualFirebase
-                .Where(c => c.Object.ChannelLive && !string.IsNullOrWhiteSpace(c.Object.LiveVideoId))
+                .Where(c => (c.Object.Actives != null && c.Object.Actives.Any()) || c.Object.ChannelLive)
                 .ToList();
 
             if (!canalesEnVivo.Any())
@@ -92,39 +105,101 @@ namespace ZappingGhostBusterConsole
                 return;
             }
 
-            var videoIds = canalesEnVivo.Select(c => c.Object.LiveVideoId).Distinct().ToList();
-            var videosConfirmadosPorYt = new HashSet<string>();
+            // Recolectamos TODOS los IDs de videos que el sistema cree que están en vivo
+            var videoIds = new HashSet<string>();
+            foreach (var canal in canalesEnVivo)
+            {
+                if (canal.Object.Actives != null)
+                {
+                    foreach (var videoId in canal.Object.Actives.Keys) videoIds.Add(videoId);
+                }
+                else if (!string.IsNullOrEmpty(canal.Object.LiveVideoId))
+                {
+                    videoIds.Add(canal.Object.LiveVideoId); // Por si quedó algún canal legacy sin migrar
+                }
+            }
 
+            var videosVivosRealesEnYt = new HashSet<string>();
+
+            // Consultamos a YouTube (ahora pedimos snippet para verificar el status real)
             foreach (var lote in videoIds.Chunk(50))
             {
-                var request = yt.Videos.List("id");
+                var request = yt.Videos.List("snippet");
                 request.Id = string.Join(",", lote);
                 var response = await request.ExecuteAsync();
 
                 if (response.Items != null)
                 {
-                    foreach (var item in response.Items) videosConfirmadosPorYt.Add(item.Id);
+                    foreach (var item in response.Items)
+                    {
+                        // Verificamos que realmente siga transmitiendo en este momento
+                        if (item.Snippet?.LiveBroadcastContent == "live")
+                        {
+                            videosVivosRealesEnYt.Add(item.Id);
+                        }
+                    }
                 }
             }
 
-            var canalesFantasmas = canalesEnVivo.Where(c => !videosConfirmadosPorYt.Contains(c.Object.LiveVideoId)).ToList();
-
-            if (!canalesFantasmas.Any())
+            // Procesamos cada canal para limpiar sus fantasmas
+            foreach (var canal in canalesEnVivo)
             {
-                Console.WriteLine("Todos los directos están sanos.");
-                return;
-            }
+                var vivosActuales = canal.Object.Actives ?? new Dictionary<string, ActiveVideo>();
 
-            foreach (var fantasma in canalesFantasmas)
-            {
-                Console.WriteLine($"- Apagando: {fantasma.Key}");
-                await firebase.Child("Channels").Child(fantasma.Key).PatchAsync(new
+                // Si el canal estaba en legacy sin 'Actives', lo simulamos para procesarlo igual
+                if (!vivosActuales.Any() && !string.IsNullOrEmpty(canal.Object.LiveVideoId))
                 {
-                    ChannelLive = false,
-                    LiveVideoId = "",
-                    ChannelImgLiveUrl = ""
-                });
+                    vivosActuales[canal.Object.LiveVideoId] = new ActiveVideo { VideoId = canal.Object.LiveVideoId };
+                }
+
+                bool huboCambios = false;
+                var vivosSobrevivientes = new List<ActiveVideo>();
+
+                foreach (var kvp in vivosActuales)
+                {
+                    if (!videosVivosRealesEnYt.Contains(kvp.Key))
+                    {
+                        // Es un fantasma. Lo borramos de la subcarpeta Actives.
+                        Console.WriteLine($"- {canal.Key}: Matando stream fantasma {kvp.Key}...");
+                        await firebase.Child("Channels").Child(canal.Key).Child("Actives").Child(kvp.Key).DeleteAsync();
+                        huboCambios = true;
+                    }
+                    else
+                    {
+                        vivosSobrevivientes.Add(kvp.Value);
+                    }
+                }
+
+                if (huboCambios)
+                {
+                    // LÓGICA DE FALLBACK AUTOMÁTICO
+                    if (vivosSobrevivientes.Any())
+                    {
+                        var fallbackVideo = vivosSobrevivientes.OrderByDescending(v => v.AddedAt ?? "").First();
+                        Console.WriteLine($"> {canal.Key}: Sobreviven otros streams. Fallback a {fallbackVideo.VideoId}");
+
+                        await firebase.Child("Channels").Child(canal.Key).PatchAsync(new
+                        {
+                            LiveVideoId = fallbackVideo.VideoId,
+                            ChannelImgLiveUrl = fallbackVideo.ThumbnailUrl ?? canal.Object.ChannelImgLiveUrl,
+                            LastActivityAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                        });
+                    }
+                    else
+                    {
+                        Console.WriteLine($"> {canal.Key}: No quedaron streams vivos. APAGANDO CANAL.");
+                        await firebase.Child("Channels").Child(canal.Key).PatchAsync(new
+                        {
+                            ChannelLive = false,
+                            LiveVideoId = "",
+                            ChannelImgLiveUrl = "",
+                            LastActivityAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                        });
+                    }
+                }
             }
+
+            Console.WriteLine("=== LIMPIEZA DE VIVOS FINALIZADA ===");
         }
 
         // --- MÓDULO 2: EL NUEVO REVISOR DE UPCOMING ---
@@ -133,7 +208,6 @@ namespace ZappingGhostBusterConsole
             Console.WriteLine("\n=== INICIANDO REVISIÓN DE UPCOMING ATRASADOS ===");
             var estadoActualFirebase = await firebase.Child("Channels").OnceAsync<FirebaseChannel>();
 
-            // Extraer todos los upcoming que ya se pasaron de la hora
             var upcomingVencidos = new List<(string ChannelKey, UpcomingVideo Video)>();
             var ahora = DateTimeOffset.UtcNow;
 
@@ -145,7 +219,7 @@ namespace ZappingGhostBusterConsole
                     {
                         if (DateTimeOffset.TryParse(upc.Value.ScheduledStartTime, out var scheduledTime))
                         {
-                            if (scheduledTime <= ahora) // ¡Ya debería haber empezado!
+                            if (scheduledTime <= ahora)
                             {
                                 upcomingVencidos.Add((canal.Key, upc.Value));
                             }
@@ -165,10 +239,8 @@ namespace ZappingGhostBusterConsole
             var videoIds = upcomingVencidos.Select(u => u.Video.VideoId).Distinct().ToList();
             var infoDeYouTube = new Dictionary<string, Google.Apis.YouTube.v3.Data.Video>();
 
-            // Consultar a YouTube en bloques
             foreach (var lote in videoIds.Chunk(50))
             {
-                // ATENCIÓN: Agregamos "status" a la petición para poder detectar si es Estreno
                 var request = yt.Videos.List("snippet,status,liveStreamingDetails,contentDetails");
                 request.Id = string.Join(",", lote);
                 var response = await request.ExecuteAsync();
@@ -179,7 +251,6 @@ namespace ZappingGhostBusterConsole
                 }
             }
 
-            // Procesar los resultados
             foreach (var item in upcomingVencidos)
             {
                 var ytVideo = infoDeYouTube.ContainsKey(item.Video.VideoId) ? infoDeYouTube[item.Video.VideoId] : null;
@@ -187,26 +258,33 @@ namespace ZappingGhostBusterConsole
 
                 var canalRef = firebase.Child("Channels").Child(item.ChannelKey);
                 var upcomingRef = canalRef.Child("Upcoming").Child(item.Video.VideoId);
-                string duracion = ytVideo?.ContentDetails?.Duration ?? "";
+                var activeRef = canalRef.Child("Actives").Child(item.Video.VideoId); // REFERENCIA A LA NUEVA CARPETA
 
-                // Si el estado de subida es "processed", significa que es un archivo de video 
-                // pregrabado (Estreno), no un stream de cámara en vivo.
-                bool esEstreno = ytVideo?.LiveStreamingDetails != null && ytVideo?.LiveStreamingDetails?.ConcurrentViewers == null && 
+                bool esEstreno = ytVideo?.LiveStreamingDetails != null && ytVideo?.LiveStreamingDetails?.ConcurrentViewers == null &&
                                  ytVideo?.ContentDetails != null && !(ytVideo?.ContentDetails?.Duration == "P0D" || ytVideo?.ContentDetails?.Duration == "PT0D");
 
-                // Si determinamos que es un estreno (ya sea que esté por arrancar o se esté emitiendo), lo eliminamos.
                 if (esEstreno && (status == "upcoming" || status == "live"))
                 {
                     Console.WriteLine($"- {item.ChannelKey}: El video {item.Video.VideoId} es un ESTRENO PREGRABADO. Eliminándolo...");
                     await upcomingRef.DeleteAsync();
-                    continue; // Saltamos a la siguiente iteración para que no siga bajando al if de "live"
+                    continue;
                 }
 
-                // --- LÓGICA NORMAL PARA DIRECTOS REALES ---
                 if (status == "live")
                 {
-                    // ¡Empezó! Lo pasamos a vivo y lo borramos de upcoming
                     Console.WriteLine($"- {item.ChannelKey}: ¡El programado {item.Video.VideoId} está EN VIVO! Actualizando...");
+
+                    // 1. LO AGREGAMOS A LA COLECCIÓN DE ACTIVOS
+                    await activeRef.PutAsync(new ActiveVideo
+                    {
+                        VideoId = item.Video.VideoId,
+                        Title = item.Video.Title,
+                        ScheduledStartTime = item.Video.ScheduledStartTime,
+                        ThumbnailUrl = item.Video.ThumbnailUrl,
+                        AddedAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                    });
+
+                    // 2. ACTUALIZAMOS EL ESTADO LEGACY DEL CANAL
                     await canalRef.PatchAsync(new
                     {
                         ChannelLive = true,
@@ -214,31 +292,28 @@ namespace ZappingGhostBusterConsole
                         ChannelImgLiveUrl = item.Video.ThumbnailUrl,
                         LastActivityAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
                     });
+
+                    // 3. LO BORRAMOS DE UPCOMING
                     await upcomingRef.DeleteAsync();
                 }
                 else if (status == "none")
                 {
-                    // Fue cancelado, borrado, o ya terminó
                     Console.WriteLine($"- {item.ChannelKey}: El programado {item.Video.VideoId} fue cancelado o no existe. Borrando...");
                     await upcomingRef.DeleteAsync();
                 }
                 else if (status == "upcoming")
                 {
-                    // El creador viene tarde a su directo, lo dejamos en la lista.
                     if (DateTimeOffset.TryParse(item.Video.ScheduledStartTime, out var scheduledTime))
                     {
-                        // Calculamos la diferencia en horas contra el momento actual
                         var horasAtrasado = (ahora - scheduledTime).TotalHours;
 
                         if (horasAtrasado > 24)
                         {
-                            // Pasó el límite de tolerancia, es un stream fantasma
                             Console.WriteLine($"- {item.ChannelKey}: El programado {item.Video.VideoId} superó las 24hs de gracia sin prender. Eliminándolo...");
                             await upcomingRef.DeleteAsync();
                         }
                         else
                         {
-                            // El creador viene tarde, lo aguantamos porque está dentro de la ventana de 24hs
                             Console.WriteLine($"- {item.ChannelKey}: El programado {item.Video.VideoId} sigue en espera ({Math.Round(horasAtrasado, 1)} hs de atraso).");
                         }
                     }

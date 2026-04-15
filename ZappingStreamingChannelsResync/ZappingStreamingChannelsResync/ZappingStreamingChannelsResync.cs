@@ -40,11 +40,16 @@ namespace ZappingStreamingDBService
         public string ChannelType { get; set; }
         public string ChannelLiveUrl { get; set; }
         public string ChannelImgUrl { get; set; }
-        public string ChannelImgLiveUrl { get; set; }
-        public bool ChannelLive { get; set; }
         public string LastActivityAt { get; set; }
+
+        // --- PROPIEDADES LEGACY (Mantenidas para compatibilidad temporal con el Front) ---
+        public bool ChannelLive { get; set; }
+        public string ChannelImgLiveUrl { get; set; }
         public string LiveVideoId { get; set; }
+
+        // --- NUEVAS COLECCIONES MULTI-ESTADO ---
         public Dictionary<string, UpcomingVideo> Upcoming { get; set; }
+        public Dictionary<string, ActiveVideo> Actives { get; set; }
     }
 
     public class UpcomingVideo
@@ -54,6 +59,17 @@ namespace ZappingStreamingDBService
         public string ScheduledStartTime { get; set; }
         public string ThumbnailUrl { get; set; }
         public string AddedAt { get; set; }
+        public bool Live { get; set; }
+    }
+
+    public class ActiveVideo
+    {
+        public string VideoId { get; set; }
+        public string Title { get; set; }
+        public string ScheduledStartTime { get; set; }
+        public string ThumbnailUrl { get; set; }
+        public string AddedAt { get; set; }
+        public bool Live { get; set; }
     }
 
     public class ZappingStreamingDBService : BackgroundService
@@ -100,10 +116,7 @@ namespace ZappingStreamingDBService
             {
                 _logger.LogInformation("=== INICIANDO TAREAS DE MANTENIMIENTO ===");
 
-                // 1. Sincronizamos la info de los canales conservando los que están en vivo
                 await ProcesarYActualizarCanalesAsync(stoppingToken);
-
-                // 2. Renovamos los webhooks para todos los canales del JSON
                 await RenovarSuscripcionesWebhooksAsync(stoppingToken);
 
                 _logger.LogInformation("=== TODAS LAS TAREAS COMPLETADAS CON ÉXITO ===");
@@ -115,7 +128,6 @@ namespace ZappingStreamingDBService
             finally
             {
                 _logger.LogInformation("Apagando la aplicación para finalizar el GitHub Action...");
-                // Esto es clave para que el proceso termine y GitHub Actions marque el step como "Success"
                 _appLifetime.StopApplication();
             }
         }
@@ -163,41 +175,34 @@ namespace ZappingStreamingDBService
                 if (infoCanalesYT.TryGetValue(stream.ChannelId, out var channelInfo))
                 {
                     string channelName = channelInfo.Snippet.Title;
-                    if (channelName.Contains("Picnic"))
-                    {
-
-                    }
                     string firebaseKey = SanitizarKeyFirebase(channelName);
 
-                    // Rescatamos variables del webhook si el canal ya existía
+                    // Variables Legacy
                     bool estabaEnVivo = false;
                     string imgLiveUrlAnterior = "";
                     string lastActivityAnterior = "";
                     string videoLiveIdAnterior = "";
 
-                    // --- NUEVA VARIABLE PARA SALVAR LOS UPCOMING ---
+                    // Colecciones
                     Dictionary<string, UpcomingVideo> upcomingAnterior = null;
+                    Dictionary<string, ActiveVideo> activesAnterior = null; // NUEVA VARIABLE PARA VIVOS MÚLTIPLES
 
                     if (canalesExistentes.TryGetValue(firebaseKey, out var canalAnterior))
                     {
                         estabaEnVivo = canalAnterior.ChannelLive;
                         imgLiveUrlAnterior = canalAnterior.ChannelImgLiveUrl ?? "";
-
                         lastActivityAnterior = string.IsNullOrEmpty(canalAnterior.LastActivityAt)
                             ? "2000-01-01T00:00:00Z"
                             : canalAnterior.LastActivityAt;
-
                         videoLiveIdAnterior = canalAnterior.LiveVideoId ?? "";
 
-                        // --- RESCATAMOS LA CARPETA UPCOMING ---
+                        // RESCATAMOS LAS COLECCIONES
                         upcomingAnterior = canalAnterior.Upcoming;
+                        activesAnterior = canalAnterior.Actives;
                     }
                     else
                     {
-                        estabaEnVivo = false;
-                        imgLiveUrlAnterior = "";
                         lastActivityAnterior = "2000-01-01T00:00:00Z";
-                        videoLiveIdAnterior = "";
                     }
 
                     string imageUrl = channelInfo.Snippet.Thumbnails.High?.Url
@@ -213,14 +218,15 @@ namespace ZappingStreamingDBService
                         ChannelCity = stream.City,
                         ChannelType = stream.Category,
 
-                        // Mantenemos lo que el Webhook hizo
+                        // Mantenemos las properties legacy por si el front las sigue pidiendo
                         ChannelLive = estabaEnVivo,
                         ChannelImgLiveUrl = imgLiveUrlAnterior,
                         LastActivityAt = lastActivityAnterior,
                         LiveVideoId = videoLiveIdAnterior,
 
-                        // --- LE DEVOLVEMOS SUS UPCOMING INTACTOS ---
-                        Upcoming = upcomingAnterior
+                        // DEVOLVEMOS LAS LISTAS INTACTAS AL FIREBASE
+                        Upcoming = upcomingAnterior,
+                        Actives = activesAnterior
                     };
                 }
             }
@@ -239,12 +245,10 @@ namespace ZappingStreamingDBService
         private async Task RenovarSuscripcionesWebhooksAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("Paso 4: Renovando suscripciones a Webhooks de YouTube...");
-
             try
             {
                 var responseJson = await _httpClient.GetStringAsync(JsonUrl, cancellationToken);
                 var streams = JsonSerializer.Deserialize<List<GithubStreamItem>>(responseJson) ?? new List<GithubStreamItem>();
-
                 var canalesValidos = streams.Where(s => !string.IsNullOrEmpty(s.ChannelId) && s.ChannelId.StartsWith("UC")).ToList();
 
                 foreach (var str in canalesValidos)
@@ -271,10 +275,8 @@ namespace ZappingStreamingDBService
                         _logger.LogError("Error en petición para {Channel}: {Message}", str.Title, ex.Message);
                     }
 
-                    // Pausa de 500ms para evitar rate-limits
                     await Task.Delay(500, cancellationToken);
                 }
-
                 _logger.LogInformation("Renovación de webhooks finalizada.");
             }
             catch (Exception ex)
