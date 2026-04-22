@@ -157,6 +157,21 @@
         }, true);
     </script>
     <script>
+        window.navegarYouTube = (url) => {
+            // Detectamos si es una TV (Android TV, Tizen, WebOS) o Móvil
+            const esTVoMovil = /Android|webOS|Tizen|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+            if (esTVoMovil) {
+                // En TVs y Celulares, lo mejor es navegar en la misma pestaña.
+                // Esto le da la oportunidad al sistema de decir: 
+                // "¡Ey! Este link es de YouTube, ¿querés abrirlo con la app?"
+                window.location.href = url;
+            } else {
+                // En la compu, abrimos pestaña nueva para no cerrar tu grilla.
+                window.open(url, "_blank");
+            }
+        };
+
         window.getSafeFirebaseToken = async () => {
             let intentos = 0;
             while (typeof window.getFirebaseAppCheckToken === 'undefined' && intentos < 50) {

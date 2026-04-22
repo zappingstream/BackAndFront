@@ -280,9 +280,11 @@
 
     private async Task AbrirCanal(FirebaseChannel canal)
     {
-        if (!string.IsNullOrEmpty(canal.ChannelLiveUrl))
+        string urlDestino = canal.ChannelLiveUrl;
+
+        if (!string.IsNullOrEmpty(urlDestino))
         {
-            await JSRuntime.InvokeVoidAsync("open", canal.ChannelLiveUrl, "_blank");
+            await JSRuntime.InvokeVoidAsync("navegarYouTube", urlDestino);
         }
     }
 
