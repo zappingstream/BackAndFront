@@ -1,0 +1,368 @@
+﻿@page "/"
+@using System.Text
+@using System.Globalization
+@using ZappingStreamingapp.Service
+@inject ZappingStreamingapp.Service.ZappingStreamService ChannelService
+@inject NavigationManager NavManager
+@inject IJSRuntime JSRuntime
+@inject HttpClient Http
+
+<PageTitle>Zapping Stream - El universo del streaming argentino</PageTitle>
+
+<div class="zapping-container">
+
+    @* --- SECCIÓN FIJA (HEADER + BUSCADOR) --- *@
+    <div class="sticky-top-section">
+
+        <div style="display: flex; justify-content: space-between; padding: 10px;">
+            <button class="info-btn" title="¿Cómo funciona?" @onclick="AbrirModalInfo">
+                ?
+            </button>
+
+            <button class="btn-oval" title="Actualizar canales" @onclick="ActualizarGrilla">
+                🔄 Actualizar Transmisiones
+            </button>
+        </div>
+
+        <header class="zapping-header">
+            <img src="images/logo.png" alt="Zapping Stream" class="app-logo" />
+        </header>
+
+        <div class="search-container">
+            <input type="text"
+                   class="search-input"
+                   placeholder="Buscar por canal o ciudad..."
+                   @bind="SearchText"
+                   @bind:event="oninput" />
+        </div>
+
+    </div>
+
+    @* --- MODAL DE INFORMACIÓN (CÓMO USAR) --- *@
+    @if (_mostrarModalInfo)
+    {
+        <div class="modal-overlay" @onclick="CerrarModalInfo">
+            <div class="modal-content info-modal" @onclick:stopPropagation>
+                <button class="close-modal-btn" @onclick="CerrarModalInfo">X</button>
+                <h3 class="modal-title">¿Qué es Zapping Stream?</h3>
+
+                <div class="info-body">
+                    <p><strong>Zapping Stream</strong> reúne todos los canales de streaming de Argentina en un solo lugar. El objetivo principal es federalizar el contenido y hacer accesible todo lo que se está produciendo actualmente en el país.</p>
+
+                    <p>El sitio interactúa directo con YouTube: si se hace click en una tarjeta, el sitio enlaza directo a la transmisión en vivo. Y si en ese momento no están transmitiendo, redirige a su perfil para ver el contenido on-demand.</p>
+
+                    <p>Se puede buscar tanto por nombre del canal como por ciudad. Con esto buscamos darle visibilidad y alentar a los medios pequeños de comunicación a que se animen a armar su propio canal de streaming desde sus ciudades.</p>
+                </div>
+
+                <button class="submit-btn" style="margin-top: 20px;" @onclick="CerrarModalInfo">Volver</button>
+            </div>
+        </div>
+    }
+
+    @* --- CUERPO PRINCIPAL --- *@
+    @if (_isLoading)
+    {
+        <div class="status-message">
+            <div class="spinner"></div>
+            <p>Conectando con el universo del stream argentino...</p>
+        </div>
+    }
+    else if (_channels == null || !_channels.Any())
+    {
+        <div class="status-message">
+            <p>No se encontraron canales configurados en Firebase.</p>
+        </div>
+    }
+    else
+    {
+        void RenderCategory(string title, IEnumerable<FirebaseChannel> categoryChannels)
+        {
+            if (categoryChannels.Any())
+            {
+                <h2 class="category-title">@title</h2>
+                <div class="channel-row">
+                    @foreach (var channel in categoryChannels)
+                    {
+                        <div class="card-wrapper">
+                            <div class="channel-card @(IsExpanded(channel.ChannelName) ? "expanded-card" : null)"
+                                 tabindex="0"
+                                 @onclick="() => AbrirCanal(channel)">
+
+                                <div class="card-header">
+                                    <div class="title-group">
+                                        @if (channel.ChannelLive && !string.IsNullOrEmpty(channel.ChannelImgUrl))
+                                        {
+                                            <img src="@channel.ChannelImgUrl" alt="Logo" class="header-mini-logo" loading="lazy" />
+                                        }
+                                        <h3 class="channel-title">@channel.ChannelName</h3>
+                                    </div>
+                                    <button class="toggle-info-btn" @onclick:stopPropagation @onclick="() => ToggleInfo(channel.ChannelName)">
+                                        @(IsExpanded(channel.ChannelName) ? "Ocultar" : "Info")
+                                    </button>
+                                </div>
+
+                                <div class="image-container">
+                                    @if (channel.ChannelLive && !string.IsNullOrEmpty(channel.ChannelImgLiveUrl))
+                                    {
+                                        <img src="@channel.ChannelImgLiveUrl" alt="@channel.ChannelName" class="channel-logo" loading="lazy" referrerpolicy="no-referrer" />
+                                    }
+                                    else if (!string.IsNullOrEmpty(channel.ChannelImgUrl))
+                                    {
+                                        <img src="@channel.ChannelImgUrl" alt="@channel.ChannelName" class="channel-logo" loading="lazy" referrerpolicy="no-referrer" />
+                                    }
+                                    else
+                                    {
+                                        <div class="fallback-logo">
+                                            <span>@(string.IsNullOrEmpty(channel.ChannelName) ? "?" : channel.ChannelName.Substring(0, 1).ToUpper())</span>
+                                        </div>
+                                    }
+
+                                    @if (channel.ChannelLive)
+                                    {
+                                        <div class="badge-vivo">
+                                            <span class="punto-rojo"></span> EN VIVO
+                                        </div>
+                                    }
+                                </div>
+
+                                <div class="last-activity-container">
+                                    <span class="last-activity-text">
+                                        @ObtenerTextoActividad(channel)
+                                    </span>
+                                </div>
+
+                                @if (IsExpanded(channel.ChannelName))
+                                {
+                                    <div class="channel-description" @onclick:stopPropagation>
+                                        <h4 class="full-title-info">@channel.ChannelName</h4>
+                                        @if (!string.IsNullOrEmpty(channel.ChannelCity))
+                                        {
+                                            <p class="city-tag">📍 @channel.ChannelCity</p>
+                                        }
+                                        <p>@(string.IsNullOrEmpty(channel.ChannelDescription) ? "Sin descripción disponible." : channel.ChannelDescription)</p>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+
+        RenderCategory("Full Stream", Streams);
+        RenderCategory("Personal", PersonalStreams);
+        RenderCategory("Televisión", Televisions);
+        RenderCategory("Radio", Radios);
+    }
+
+    @if (!FilteredChannels.Any() && !_isLoading)
+    {
+        <div class="status-message">
+            <p>No hay resultados para "@SearchText"</p>
+        </div>
+    }
+
+    @* --- FOOTER / CONTACTO --- *@
+    @if (!_isLoading)
+    {
+        <div class="footer-section">
+
+            <div class="contact-action-container">
+                <p class="contact-email-text">
+                    Si tu canal no aparece en la lista y querés sumarlo, o si deseás solicitar la baja de tu contenido, escribinos a<br />
+                    <a href="mailto:contacto@zappingstream.com">contacto@zappingstream.com</a>
+                </p>
+            </div>
+
+            <div class="legal-disclaimer">
+                <p>
+                    © @DateTime.Now.Year Zapping Stream. Todos los derechos reservados.
+                </p>
+                <p>
+                    Al utilizar este sitio, aceptas los
+                    <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">Términos de Servicio de YouTube</a>.
+                    Los logos, miniaturas, nombres y descripciones son extraídos directamente de YouTube API Services. Conocé la
+                    <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Política de Privacidad de Google</a>.
+                </p>
+                <p>
+                    Este sitio es un directorio de canales independiente. No alojamos ni retransmitimos contenido propio. Todos los videos, marcas y logotipos son propiedad exclusiva de sus respectivos creadores y se visualizan a través del reproductor oficial de YouTube.
+                </p>
+            </div>
+        </div>
+    }
+
+    @* --- OVERLAY OSCURO DE FONDO --- *@
+    @if (_expandedChannels.Any())
+    {
+        <div class="fullscreen-overlay" @onclick="CerrarTodasLasTarjetas"></div>
+    }
+</div>
+
+
+@code {
+    private List<FirebaseChannel>? _channels;
+    private FirebaseDBMeta? _metadata;
+    private bool _isLoading = true;
+
+    // --- VARIABLES PARA EL MODAL DE INFORMACIÓN ---
+    private bool _mostrarModalInfo = false;
+
+    private string _searchText = "";
+    private string SearchText
+    {
+        get => _searchText;
+        set { _searchText = value; }
+    }
+
+    private static string RemoveDiacritics(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return text;
+
+        var normalizedString = text.Normalize(NormalizationForm.FormD);
+        var stringBuilder = new StringBuilder(capacity: normalizedString.Length);
+
+        for (int i = 0; i < normalizedString.Length; i++)
+        {
+            char c = normalizedString[i];
+            var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
+            if (unicodeCategory != UnicodeCategory.NonSpacingMark)
+            {
+                stringBuilder.Append(c);
+            }
+        }
+
+        return stringBuilder.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    private async Task ActualizarGrilla()
+    {
+        // 1. Mostramos el spinner de carga
+        _isLoading = true;
+        StateHasChanged();
+
+        // 2. Le damos un respiro mínimo a la interfaz para que dibuje el spinner
+        await Task.Delay(50);
+
+        // 3. Vamos a buscar los canales frescos a Firebase
+        _channels = await ChannelService.GetChannelsAsync();
+        _metadata = await ChannelService.GetLastSyncDateTime();
+
+        // 4. Apagamos el spinner y Blazor dibuja la grilla actualizada automáticamente
+        _isLoading = false;
+        StateHasChanged();
+    }
+
+    private IEnumerable<FirebaseChannel> FilteredChannels
+    {
+        get
+        {
+            if (_channels == null) return new List<FirebaseChannel>();
+
+            if (string.IsNullOrWhiteSpace(SearchText)) return _channels;
+
+            var cleanSearchText = RemoveDiacritics(SearchText.Trim()).ToLowerInvariant();
+
+            return _channels.Where(c =>
+            {
+                var cleanName = RemoveDiacritics(c.ChannelName ?? "").ToLowerInvariant();
+                var cleanCity = RemoveDiacritics(c.ChannelCity ?? "").ToLowerInvariant();
+
+                return cleanName.Contains(cleanSearchText) || cleanCity.Contains(cleanSearchText);
+            });
+        }
+    }
+
+    private IEnumerable<FirebaseChannel> Streams => FilteredChannels
+            .Where(c => c.ChannelType != null && c.ChannelType.Contains("stream", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(c => c.ChannelLive)
+            .ThenByDescending(c => c.LastActivityAt);
+
+    private IEnumerable<FirebaseChannel> PersonalStreams => FilteredChannels
+        .Where(c => c.ChannelType != null && c.ChannelType.Contains("personal", StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(c => c.ChannelLive)
+        .ThenByDescending(c => c.LastActivityAt);
+
+    private IEnumerable<FirebaseChannel> Televisions => FilteredChannels
+        .Where(c => c.ChannelType != null && c.ChannelType.Contains("television", StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(c => c.ChannelLive)
+        .ThenByDescending(c => c.LastActivityAt);
+
+    private IEnumerable<FirebaseChannel> Radios => FilteredChannels
+        .Where(c => c.ChannelType != null && c.ChannelType.Contains("radio", StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(c => c.ChannelLive)
+        .ThenByDescending(c => c.LastActivityAt);
+
+    private HashSet<string> _expandedChannels = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _channels = await ChannelService.GetChannelsAsync();
+        _metadata = await ChannelService.GetLastSyncDateTime();
+
+        _isLoading = false;
+    }
+
+    private async Task AbrirCanal(FirebaseChannel canal)
+    {
+        string urlDestino = canal.ChannelLiveUrl;
+
+        if (!string.IsNullOrEmpty(urlDestino))
+        {
+            await JSRuntime.InvokeVoidAsync("navegarYouTube", urlDestino);
+        }
+    }
+
+    private void ToggleInfo(string channelName)
+    {
+        var safeName = channelName ?? string.Empty;
+        if (!_expandedChannels.Contains(safeName))
+        {
+            _expandedChannels.Clear();
+            _expandedChannels.Add(safeName);
+        }
+        else
+        {
+            _expandedChannels.Remove(safeName);
+        }
+    }
+
+    private void CerrarTodasLasTarjetas()
+    {
+        _expandedChannels.Clear();
+    }
+
+    private bool IsExpanded(string channelName) => _expandedChannels.Contains(channelName ?? string.Empty);
+
+    // --- MÉTODOS DEL MODAL DE INFORMACIÓN ---
+    private void AbrirModalInfo()
+    {
+        _mostrarModalInfo = true;
+    }
+
+    private void CerrarModalInfo()
+    {
+        _mostrarModalInfo = false;
+    }
+
+    private string ObtenerTextoActividad(FirebaseChannel canal)
+    {
+        return $"Ultima Actividad: {canal.LastActivityAt.ToLocalTime().ToString("dd/MM/yy - HH:mm")} hs";
+    }
+
+    private string FormatearSincro(string lastSynced)
+    {
+        if (DateTimeOffset.TryParse(lastSynced, null, System.Globalization.DateTimeStyles.AssumeUniversal, out var fecha))
+        {
+            var ahora = DateTimeOffset.Now;
+            var diff = ahora - fecha;
+            var minutos = diff.TotalMinutes;
+
+            if (minutos < 0) return "---";
+            if (minutos < 1) return "ahora mismo";
+            if (minutos < 60) return $"hace {Math.Floor(minutos)} min";
+
+            return fecha.ToLocalTime().ToString("HH:mm") + " hs";
+        }
+        return "---";
+    }
+}
