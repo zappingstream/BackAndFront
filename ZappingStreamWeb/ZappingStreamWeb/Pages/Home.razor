@@ -28,7 +28,11 @@
                    placeholder="Buscar por canal o ciudad..."
                    @bind="SearchText"
                    @bind:event="oninput" />
+            <button class="refresh-btn" title="Actualizar canales" @onclick="RecargarCanales" disabled="@_isLoading">
+                ↻
+            </button>
         </div>
+      
 
     </div>
 
@@ -300,6 +304,25 @@
         {
             _expandedChannels.Remove(safeName);
         }
+    }
+
+    private async Task RecargarCanales()
+    {
+        await CargarDatosAsync();
+    }
+
+    private async Task CargarDatosAsync()
+    {
+        // 1. Prendemos el loader y forzamos a la UI a dibujarlo
+        _isLoading = true;
+        StateHasChanged();
+
+        // 2. Vamos a buscar los datos frescos a JS/Firebase
+        _channels = await ChannelService.GetChannelsAsync();
+        _metadata = await ChannelService.GetLastSyncDateTime();
+
+        // 3. Apagamos el loader
+        _isLoading = false;
     }
 
     private void CerrarTodasLasTarjetas()

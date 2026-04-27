@@ -1,5 +1,6 @@
-﻿using System.Net.Http.Json;
+﻿using Android.Gms.Extensions;
 using Microsoft.JSInterop; 
+using System.Net.Http.Json;
 
 namespace ZappingStreamingapp.Service
 {
@@ -41,8 +42,21 @@ namespace ZappingStreamingapp.Service
         {
             try
             {
-                // Llamamos a la función de JavaScript que creamos recién
-                var token = await _jsRuntime.InvokeAsync<string>("getFirebaseAppCheckToken");
+                string token = string.Empty;
+
+#if ANDROID
+                // 🚀 MODO CELULAR: Buscamos el token en el motor nativo de Android (El que tiene el pase VIP)
+                var nativeTask = Firebase.AppCheck.FirebaseAppCheck.Instance.GetToken(false);
+                var tokenResult = (Firebase.AppCheck.AppCheckTokenResult)await nativeTask;
+
+                if (tokenResult != null)
+                {
+                    token = tokenResult.Token;
+                }
+#else
+        // 🌐 MODO WEB: Seguimos usando JavaScript y reCAPTCHA
+        token = await _jsRuntime.InvokeAsync<string>("getFirebaseAppCheckToken");
+#endif
 
                 if (!string.IsNullOrEmpty(token))
                 {

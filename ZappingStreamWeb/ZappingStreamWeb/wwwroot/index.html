@@ -81,15 +81,15 @@
 </head>
 
 <body>
-   <div id="app">
+    <div id="app">
         <div class="pantalla-carga">
             <img src="favicon.png" alt="Cargando Zapping Stream" class="loading-logo" />
-            
+
             <div class="loading-row">
                 <div class="spinner-loader"></div>
                 <!--<div class="texto-loader">Cargando...</div>-->
             </div>
-            
+
         </div>
     </div>
 
@@ -98,6 +98,7 @@
         <a href="" class="reload">Reload</a>
         <a class="dismiss">🗙</a>
     </div>
+
 
     <script src="_framework/blazor.webassembly.js"></script>
 
@@ -163,7 +164,7 @@
 
             if (esTVoMovil) {
                 // En TVs y Celulares, lo mejor es navegar en la misma pestaña.
-                // Esto le da la oportunidad al sistema de decir: 
+                // Esto le da la oportunidad al sistema de decir:
                 // "¡Ey! Este link es de YouTube, ¿querés abrirlo con la app?"
                 window.location.href = url;
             } else {
@@ -189,6 +190,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
         import { initializeAppCheck, ReCaptchaV3Provider, getToken } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app-check.js";
+        // 1. Agregamos el import de la Database
+        import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAnymUVsnZdWfjRWgh0uLxaVmW4zb6GZWE",
@@ -202,6 +205,7 @@
         };
 
         const app = initializeApp(firebaseConfig);
+
 
         if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
             self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
@@ -224,6 +228,34 @@
                 return null;
             }
         };
+
+        const db = getDatabase(app);
+
+        window.traerCanalesFirebase = async () => {
+            try {
+                const dbRef = ref(db);
+                // Esto va directo a Firebase, sin URL .json
+                const snapshot = await get(child(dbRef, 'Channels'));
+                if (snapshot.exists()) {
+                    return snapshot.val();
+                }
+                return null;
+            } catch (error) {
+                console.error("Error trayendo canales desde JS:", error);
+                return null;
+            }
+        };
+
+        window.traerMetaFirebase = async () => {
+            try {
+                const dbRef = ref(db);
+                const snapshot = await get(child(dbRef, 'Meta'));
+                return snapshot.exists() ? snapshot.val() : null;
+            } catch (error) {
+                return null;
+            }
+        };
     </script>
+
 </body>
 </html>

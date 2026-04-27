@@ -21,6 +21,36 @@
     border: 1px solid #333;
 }
 
+.refresh-btn {
+    background-color: #222;
+    color: #38B6FF;
+    border: 1px solid #38B6FF;
+    border-radius: 40px;
+    width: 45px;
+    height: 45px;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.3s ease;
+    margin-top: 8px;
+    margin-left: 10px;
+}
+
+    .refresh-btn:hover:not(:disabled) {
+        background-color: #38B6FF;
+        color: #000;
+    }
+
+    .refresh-btn:disabled {
+        border-color: #555;
+        color: #555;
+        cursor: not-allowed;
+        background-color: #111;
+    }
+
 .zapping-container {
     min-height: 100vh;
     background-color: #000;

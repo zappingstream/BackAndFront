@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "593976978663",
+    "firebase_url": "https://zappingstreaming-default-rtdb.firebaseio.com",
+    "project_id": "zappingstreaming",
+    "storage_bucket": "zappingstreaming.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:593976978663:android:98acc8e055a4b8c4708642",
+        "android_client_info": {
+          "package_name": "com.companyname.zappingstreamingapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBI260IH0iuiNbNdAMfvNSEPuFZrQ0ZM_k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

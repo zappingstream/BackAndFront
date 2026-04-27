@@ -23,49 +23,24 @@ namespace ZappingStreamWebServer.Service
 
     public class ZappingStreamService
     {
-        private readonly HttpClient _httpClient;
         private readonly IJSRuntime _jsRuntime; // 1. Agregamos el JSRuntime
 
-        private const string FirebaseDbUrl = "https://zappingstreaming-default-rtdb.firebaseio.com/Channels.json";
-        private const string FirebaseDbLastSync = "https://zappingstreaming-default-rtdb.firebaseio.com/Meta.json";
 
         // 2. Inyectamos el IJSRuntime en el constructor
         public ZappingStreamService(HttpClient httpClient, IJSRuntime jsRuntime)
         {
-            _httpClient = httpClient;
             _jsRuntime = jsRuntime;
         }
 
         // 3. Este es el método mágico que busca el token y lo inyecta
-        private async Task AttachAppCheckTokenAsync()
-        {
-            try
-            {
-                // Llamamos a la función de JavaScript que creamos recién
-                var token = await _jsRuntime.InvokeAsync<string>("getFirebaseAppCheckToken");
-
-                if (!string.IsNullOrEmpty(token))
-                {
-                    // Limpiamos por si ya existía de una petición anterior
-                    _httpClient.DefaultRequestHeaders.Remove("X-Firebase-AppCheck");
-                    // Adjuntamos el token como Header
-                    _httpClient.DefaultRequestHeaders.Add("X-Firebase-AppCheck", token);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error adjuntando el token de App Check: {ex.Message}");
-            }
-        }
-
+      
         public async Task<FirebaseDBMeta> GetLastSyncDateTime()
         {
             // 4. Antes de hacer la petición, adjuntamos el token de seguridad
-            await AttachAppCheckTokenAsync();
 
             try
             {
-                var firebaseMetaData = await _httpClient.GetFromJsonAsync<FirebaseDBMeta>(FirebaseDbLastSync);
+                var firebaseMetaData = await _jsRuntime.InvokeAsync<FirebaseDBMeta>("traerMetaFirebase");
 
                 if (firebaseMetaData != null)
                 {
@@ -83,11 +58,10 @@ namespace ZappingStreamWebServer.Service
         public async Task<List<FirebaseChannel>> GetChannelsAsync()
         {
             // 5. Acá también adjuntamos el token de seguridad antes de pedir la grilla
-            await AttachAppCheckTokenAsync();
 
             try
             {
-                var firebaseData = await _httpClient.GetFromJsonAsync<Dictionary<string, FirebaseChannel>>(FirebaseDbUrl);
+                var firebaseData = await _jsRuntime.InvokeAsync<Dictionary<string, FirebaseChannel>>("traerCanalesFirebase");
 
                 if (firebaseData != null)
                 {
