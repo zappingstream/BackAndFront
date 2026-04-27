@@ -46,6 +46,7 @@ namespace ZappingStreamingDBService
         public bool ChannelLive { get; set; }
         public string ChannelImgLiveUrl { get; set; }
         public string LiveVideoId { get; set; }
+        public bool IsPremiere { get; set; } 
 
         // --- NUEVAS COLECCIONES MULTI-ESTADO ---
         public Dictionary<string, UpcomingVideo> Upcoming { get; set; }
@@ -60,6 +61,7 @@ namespace ZappingStreamingDBService
         public string ThumbnailUrl { get; set; }
         public string AddedAt { get; set; }
         public bool Live { get; set; }
+        public bool IsPremiere { get; set; } 
     }
 
     public class ActiveVideo
@@ -70,6 +72,7 @@ namespace ZappingStreamingDBService
         public string ThumbnailUrl { get; set; }
         public string AddedAt { get; set; }
         public bool Live { get; set; }
+        public bool IsPremiere { get; set; } 
     }
 
     public class ZappingStreamingDBService : BackgroundService
@@ -182,6 +185,7 @@ namespace ZappingStreamingDBService
                     string imgLiveUrlAnterior = "";
                     string lastActivityAnterior = "";
                     string videoLiveIdAnterior = "";
+                    bool isPremiereAnterior = false;
 
                     // Colecciones
                     Dictionary<string, UpcomingVideo> upcomingAnterior = null;
@@ -195,6 +199,7 @@ namespace ZappingStreamingDBService
                             ? "2000-01-01T00:00:00Z"
                             : canalAnterior.LastActivityAt;
                         videoLiveIdAnterior = canalAnterior.LiveVideoId ?? "";
+                        isPremiereAnterior = canalAnterior.IsPremiere; // <-- 2. RESCATAMOS EL ESTADO
 
                         // RESCATAMOS LAS COLECCIONES
                         upcomingAnterior = canalAnterior.Upcoming;
@@ -223,6 +228,7 @@ namespace ZappingStreamingDBService
                         ChannelImgLiveUrl = imgLiveUrlAnterior,
                         LastActivityAt = lastActivityAnterior,
                         LiveVideoId = videoLiveIdAnterior,
+                        IsPremiere = isPremiereAnterior, // <-- 3. DEVOLVEMOS INTACTO
 
                         // DEVOLVEMOS LAS LISTAS INTACTAS AL FIREBASE
                         Upcoming = upcomingAnterior,
