@@ -117,9 +117,18 @@
 
                                     @if (channel.ChannelLive)
                                     {
-                                        <div class="badge-vivo">
-                                            <span class="punto-rojo"></span> EN VIVO
-                                        </div>
+                                        @if (channel.IsPremiere)
+                                        {
+                                            <div class="badge-estreno">
+                                                <span class="punto-azul"></span> ESTRENO
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="badge-vivo">
+                                                <span class="punto-rojo"></span> EN VIVO
+                                            </div>
+                                        }
                                     }
                                 </div>
 
@@ -286,14 +295,24 @@
     {
         string urlDestino = canal.ChannelLiveUrl;
 
-        if (!string.IsNullOrEmpty(urlDestino) && canal.ChannelLive)
+        if (canal.ChannelLive)
         {
+            // Si es un estreno y tenemos el ID del video, armamos el link directo al video
+            if (canal.IsPremiere && !string.IsNullOrEmpty(canal.LiveVideoId))
+            {
+                urlDestino = $"https://www.youtube.com/watch?v={canal.LiveVideoId}";
+            }
+            // Si es un stream normal, urlDestino sigue siendo el "/live" genérico
+
             await JSRuntime.InvokeVoidAsync("navegarYouTube", urlDestino);
         }
         else
         {
-            await JSRuntime.InvokeVoidAsync("navegarYouTube", urlDestino.Replace("/live", ""));
-
+            // Si el canal está apagado, vamos al perfil principal
+            if (!string.IsNullOrEmpty(urlDestino))
+            {
+                await JSRuntime.InvokeVoidAsync("navegarYouTube", urlDestino.Replace("/live", ""));
+            }
         }
     }
 

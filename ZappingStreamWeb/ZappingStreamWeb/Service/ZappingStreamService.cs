@@ -3,18 +3,24 @@ using Microsoft.JSInterop;
 
 namespace ZappingStreamWebServer.Service
 {
+    // --- MODELOS DE DATOS ---
     public class FirebaseChannel
     {
-        public string ChannelName { get; set; } = string.Empty;
-        public bool ChannelLive { get; set; } = false;
-        public string ChannelLiveUrl { get; set; } = string.Empty;
-        public string ChannelImgUrl { get; set; } = string.Empty;
-        public string ChannelImgLiveUrl { get; set; } = string.Empty;
-        public string ChannelDescription { get; set; } = string.Empty;
-        public string ChannelCity { get; set; } = string.Empty;
-        public string ChannelType { get; set; } = string.Empty;
-        public DateTime LastActivityAt { get; set; } = DateTime.MinValue;
+        public string ChannelName { get; set; }
+        public string ChannelDescription { get; set; }
+        public string ChannelCity { get; set; }
+        public string ChannelType { get; set; }
+        public string ChannelLiveUrl { get; set; }
+        public string ChannelImgUrl { get; set; }
+
+        // Legacy
+        public string ChannelImgLiveUrl { get; set; }
+        public bool ChannelLive { get; set; }
+        public string LiveVideoId { get; set; }
+        public DateTime LastActivityAt { get; set; }
+        public bool IsPremiere { get; set; } // <-- NUEVO
     }
+
 
     public class FirebaseDBMeta
     {
