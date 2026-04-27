@@ -286,9 +286,14 @@
     {
         string urlDestino = canal.ChannelLiveUrl;
 
-        if (!string.IsNullOrEmpty(urlDestino))
+        if (!string.IsNullOrEmpty(urlDestino) && canal.ChannelLive)
         {
             await JSRuntime.InvokeVoidAsync("navegarYouTube", urlDestino);
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("navegarYouTube", urlDestino.Replace("/live", ""));
+
         }
     }
 
