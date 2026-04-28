@@ -272,8 +272,7 @@ namespace ZappingGhostBusterConsole
                 {
                     Console.WriteLine($"- {item.ChannelKey}: ¡El programado {item.Video.VideoId} está EN VIVO! Actualizando...");
 
-                    // 1. LO AGREGAMOS A LA COLECCIÓN DE ACTIVOS
-                    await activeRef.PutAsync(new ActiveVideo
+                    var nuevoActivo = new ActiveVideo
                     {
                         VideoId = item.Video.VideoId,
                         Title = item.Video.Title,
@@ -281,25 +280,34 @@ namespace ZappingGhostBusterConsole
                         ThumbnailUrl = item.Video.ThumbnailUrl,
                         AddedAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                         IsPremiere = esEstreno // <-- Guardamos si es estreno
+                    };
+
+                    // 1. LO AGREGAMOS A LA COLECCIÓN DE ACTIVOS
+                    await activeRef.PutAsync(nuevoActivo);
+
+                    // 2. SISTEMA DE ELECCIÓN DE GANADOR (Igual que en Webhook)
+                    // Agarramos los vivos que el canal ya tenía en la base de datos y le sumamos este nuevo
+                    var vivosActuales = item.CanalDB.Actives?.Values.ToList() ?? new List<ActiveVideo>();
+                    vivosActuales.Add(nuevoActivo);
+
+                    // Elegimos al ganador priorizando los Vivos Reales (False) sobre los Estrenos (True)
+                    var streamGanador = vivosActuales
+                        .OrderBy(v => v.IsPremiere)
+                        .ThenByDescending(v => v.AddedAt ?? "")
+                        .First();
+
+                    await canalRef.PatchAsync(new
+                    {
+                        ChannelLive = true,
+                        LiveVideoId = streamGanador.VideoId,
+                        ChannelImgLiveUrl = streamGanador.ThumbnailUrl,
+                        LastActivityAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                        IsPremiere = streamGanador.IsPremiere
                     });
 
-                    // 2. VERIFICAMOS PRECEDENCIA ANTES DE PISAR LA PORTADA
-                    bool hayVivoRealCorriendo = item.CanalDB.ChannelLive && !item.CanalDB.IsPremiere;
-
-                    if (hayVivoRealCorriendo && esEstreno)
+                    if (streamGanador.VideoId != item.Video.VideoId)
                     {
-                        Console.WriteLine($"> {item.ChannelKey}: Es un estreno y ya hay un vivo real corriendo. Guardado en Actives sin afectar la portada.");
-                    }
-                    else
-                    {
-                        await canalRef.PatchAsync(new
-                        {
-                            ChannelLive = true,
-                            LiveVideoId = item.Video.VideoId,
-                            ChannelImgLiveUrl = item.Video.ThumbnailUrl,
-                            LastActivityAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                            IsPremiere = esEstreno // <-- Actualizamos el estado principal
-                        });
+                        Console.WriteLine($"> {item.ChannelKey}: Es un estreno y la portada se la quedó el vivo real ({streamGanador.VideoId}). Guardado silenciosamente.");
                     }
 
                     // 3. LO BORRAMOS DE UPCOMING
