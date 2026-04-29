@@ -102,7 +102,7 @@
                                 <div class="image-container">
                                     @if (channel.ChannelLive && !string.IsNullOrEmpty(channel.ChannelImgLiveUrl))
                                     {
-                                        <img src="@channel.ChannelImgLiveUrl" alt="@channel.ChannelName" class="channel-logo" loading="lazy" referrerpolicy="no-referrer" />
+                                        <img src="@ObtenerImagenFresca(channel.ChannelImgLiveUrl, channel.LastActivityAt.ToLocalTime().ToString("dd/MM/yy - HH:mm"))" alt="@channel.ChannelName" class="channel-logo" loading="lazy" referrerpolicy="no-referrer" />
                                     }
                                     else if (!string.IsNullOrEmpty(channel.ChannelImgUrl))
                                     {
@@ -369,7 +369,22 @@
 
     private string ObtenerTextoActividad(FirebaseChannel canal)
     {
-        return $"Ultima Actividad: {canal.LastActivityAt.ToLocalTime().ToString("dd/MM/yy - HH:mm")} hs";
+        // En C#, si un DateTime viene vacío de Firebase, toma el valor "default" (año 0001)
+        // También chequeamos nuestra fecha comodín del año 2000
+        if (canal.LastActivityAt == default(DateTime) || canal.LastActivityAt.Year == 2000)
+            return "Sin actividad registrada";
+
+        // Calculamos la diferencia (forzamos a UniversalTime por las dudas para comparar bien con UtcNow)
+        var diferencia = DateTime.UtcNow - canal.LastActivityAt.ToUniversalTime();
+
+        // Si pasaron más de 365 días (1 año)
+        if (diferencia.TotalDays > 365)
+        {
+            return "Sin actividad registrada";
+        }
+
+        // Si tiene actividad reciente, lo mostramos normal
+        return $"Última Actividad: {canal.LastActivityAt.ToLocalTime().ToString("dd/MM/yy - HH:mm")} hs";
     }
 
     private string FormatearSincro(string lastSynced)
@@ -387,5 +402,21 @@
             return fecha.ToLocalTime().ToString("HH:mm") + " hs";
         }
         return "---";
+    }
+
+    // --- MÉTODO PARA SALTEAR LA CACHÉ ---
+    private string ObtenerImagenFresca(string url, string lastActivityAt)
+    {
+        if (string.IsNullOrEmpty(url)) return url;
+
+        // Si por algún motivo no hay fecha, usamos un fallback seguro
+        string cacheBuster = string.IsNullOrEmpty(lastActivityAt) 
+            ? DateTime.UtcNow.Ticks.ToString() 
+            : Uri.EscapeDataString(lastActivityAt);
+
+        // Nos fijamos si la URL de YouTube ya tiene un "?" (para sumarle un "&") o si va el "?" directo
+        string conector = url.Contains("?") ? "&" : "?";
+        
+        return $"{url}{conector}act={cacheBuster}";
     }
 }
