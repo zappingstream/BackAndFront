@@ -17,4 +17,4 @@ jobs:
         YOUTUBE_APIKEY: ${{ secrets.YOUTUBE_APIKEY }}
         FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
       # ¡Fíjate en el argumento "upcoming" al final!
-      run: dotnet run --project ./ZappingStreamingLiveChecker/ZappingStreamingLiveChecker/ZappingStreamingLiveChecker.csproj -- upcoming
+      run: dotnet run --project ./ZappingStreamingLiveChecker/ZappingStreamingLiveChecker/ZappingStreamingLiveChecker.csproj
