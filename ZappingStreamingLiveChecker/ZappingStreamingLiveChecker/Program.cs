@@ -68,19 +68,9 @@ namespace ZappingGhostBusterConsole
                 ApplicationName = "ZappingGhostBuster"
             });
 
-            string modo = args.Length > 0 ? args[0].ToLower() : "all";
-
             try
             {
-                if (modo == "vivos" || modo == "all")
-                {
-                    await EjecutarCazaFantasmasVivos(firebaseClient, youtubeService);
-                }
-
-                if (modo == "upcoming" || modo == "all")
-                {
-                    await EjecutarCazaFantasmasUpcoming(firebaseClient, youtubeService);
-                }
+                await EjecutarCazaFantasmasUnificado(firebaseClient, youtubeService);
             }
             catch (Exception ex)
             {
@@ -90,156 +80,50 @@ namespace ZappingGhostBusterConsole
             }
         }
 
-        // --- MÓDULO 1: LIMPIEZA DE VIVOS MULTI-ESTADO ---
-        static async Task EjecutarCazaFantasmasVivos(FirebaseClient firebase, YouTubeService yt)
+        static async Task EjecutarCazaFantasmasUnificado(FirebaseClient firebase, YouTubeService yt)
         {
-            Console.WriteLine("\n=== INICIANDO LIMPIEZA DE VIVOS CAÍDOS ===");
+            Console.WriteLine("\n=== INICIANDO REVISIÓN UNIFICADA (VIVOS + UPCOMING) ===");
             var estadoActualFirebase = await firebase.Child("Channels").OnceAsync<FirebaseChannel>();
 
-            var canalesEnVivo = estadoActualFirebase
-                .Where(c => (c.Object.Actives != null && c.Object.Actives.Any()) || c.Object.ChannelLive)
-                .ToList();
-
-            if (!canalesEnVivo.Any())
-            {
-                Console.WriteLine("No hay canales en vivo. Nada que limpiar.");
-                return;
-            }
-
+            var ahora = DateTimeOffset.UtcNow;
             var videoIds = new HashSet<string>();
-            foreach (var canal in canalesEnVivo)
+
+            // 1. RECOLECTAR TODOS LOS IDs EN UNA SOLA BOLSA
+            foreach (var canal in estadoActualFirebase)
             {
+                // Extraer de Vivos
                 if (canal.Object.Actives != null)
                 {
-                    foreach (var videoId in canal.Object.Actives.Keys) videoIds.Add(videoId);
+                    foreach (var key in canal.Object.Actives.Keys) videoIds.Add(key);
                 }
                 else if (!string.IsNullOrEmpty(canal.Object.LiveVideoId))
                 {
                     videoIds.Add(canal.Object.LiveVideoId);
                 }
-            }
 
-            var videosVivosRealesEnYt = new HashSet<string>();
-
-            foreach (var lote in videoIds.Chunk(50))
-            {
-                var request = yt.Videos.List("snippet");
-                request.Id = string.Join(",", lote);
-                var response = await request.ExecuteAsync();
-
-                if (response.Items != null)
-                {
-                    foreach (var item in response.Items)
-                    {
-                        if (item.Snippet?.LiveBroadcastContent == "live")
-                        {
-                            videosVivosRealesEnYt.Add(item.Id);
-                        }
-                    }
-                }
-            }
-
-            foreach (var canal in canalesEnVivo)
-            {
-                var vivosActuales = canal.Object.Actives ?? new Dictionary<string, ActiveVideo>();
-
-                if (!vivosActuales.Any() && !string.IsNullOrEmpty(canal.Object.LiveVideoId))
-                {
-                    vivosActuales[canal.Object.LiveVideoId] = new ActiveVideo { VideoId = canal.Object.LiveVideoId };
-                }
-
-                bool huboCambios = false;
-                var vivosSobrevivientes = new List<ActiveVideo>();
-
-                foreach (var kvp in vivosActuales)
-                {
-                    if (!videosVivosRealesEnYt.Contains(kvp.Key))
-                    {
-                        Console.WriteLine($"- {canal.Key}: Matando stream fantasma {kvp.Key}...");
-                        await firebase.Child("Channels").Child(canal.Key).Child("Actives").Child(kvp.Key).DeleteAsync();
-                        huboCambios = true;
-                    }
-                    else
-                    {
-                        vivosSobrevivientes.Add(kvp.Value);
-                    }
-                }
-
-                if (huboCambios)
-                {
-                    if (vivosSobrevivientes.Any())
-                    {
-                        // AQUÍ APLICAMOS LA PRECEDENCIA: Falsos (Vivos Reales) ganan sobre Trues (Estrenos)
-                        var fallbackVideo = vivosSobrevivientes
-                            .OrderBy(v => v.IsPremiere)
-                            .ThenByDescending(v => v.AddedAt ?? "")
-                            .First();
-
-                        Console.WriteLine($"> {canal.Key}: Sobreviven otros streams. Fallback a {fallbackVideo.VideoId}");
-
-                        await firebase.Child("Channels").Child(canal.Key).PatchAsync(new
-                        {
-                            LiveVideoId = fallbackVideo.VideoId,
-                            ChannelImgLiveUrl = fallbackVideo.ThumbnailUrl ?? canal.Object.ChannelImgLiveUrl,
-                            LastActivityAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                            IsPremiere = fallbackVideo.IsPremiere // <-- Actualizamos el estado
-                        });
-                    }
-                    else
-                    {
-                        Console.WriteLine($"> {canal.Key}: No quedaron streams vivos. APAGANDO CANAL.");
-                        await firebase.Child("Channels").Child(canal.Key).PatchAsync(new
-                        {
-                            ChannelLive = false,
-                            LiveVideoId = "",
-                            ChannelImgLiveUrl = "",
-                            LastActivityAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                            IsPremiere = false // <-- Limpiamos el estado
-                        });
-                    }
-                }
-            }
-
-            Console.WriteLine("=== LIMPIEZA DE VIVOS FINALIZADA ===");
-        }
-
-        // --- MÓDULO 2: EL NUEVO REVISOR DE UPCOMING ---
-        static async Task EjecutarCazaFantasmasUpcoming(FirebaseClient firebase, YouTubeService yt)
-        {
-            Console.WriteLine("\n=== INICIANDO REVISIÓN DE UPCOMING ATRASADOS ===");
-            var estadoActualFirebase = await firebase.Child("Channels").OnceAsync<FirebaseChannel>();
-
-            var upcomingVencidos = new List<(string ChannelKey, FirebaseChannel CanalDB, UpcomingVideo Video)>();
-            var ahora = DateTimeOffset.UtcNow;
-
-            foreach (var canal in estadoActualFirebase)
-            {
+                // Extraer de Upcoming (solo los que ya pasaron su hora)
                 if (canal.Object.Upcoming != null)
                 {
                     foreach (var upc in canal.Object.Upcoming)
                     {
-                        if (DateTimeOffset.TryParse(upc.Value.ScheduledStartTime, out var scheduledTime))
+                        if (DateTimeOffset.TryParse(upc.Value.ScheduledStartTime, out var scheduledTime) && scheduledTime <= ahora)
                         {
-                            if (scheduledTime <= ahora)
-                            {
-                                upcomingVencidos.Add((canal.Key, canal.Object, upc.Value));
-                            }
+                            videoIds.Add(upc.Key);
                         }
                     }
                 }
             }
 
-            if (!upcomingVencidos.Any())
+            if (!videoIds.Any())
             {
-                Console.WriteLine("No hay directos programados atrasados que revisar.");
+                Console.WriteLine("No hay videos activos ni directos atrasados para revisar.");
                 return;
             }
 
-            Console.WriteLine($"Revisando {upcomingVencidos.Count} videos programados vencidos...");
+            Console.WriteLine($"Se evaluarán {videoIds.Count} videos en total...");
 
-            var videoIds = upcomingVencidos.Select(u => u.Video.VideoId).Distinct().ToList();
+            // 2. CONSULTAR A YOUTUBE (Pidiendo todas las partes necesarias a la vez)
             var infoDeYouTube = new Dictionary<string, Google.Apis.YouTube.v3.Data.Video>();
-
             foreach (var lote in videoIds.Chunk(50))
             {
                 var request = yt.Videos.List("snippet,status,liveStreamingDetails,contentDetails");
@@ -252,90 +136,125 @@ namespace ZappingGhostBusterConsole
                 }
             }
 
-            foreach (var item in upcomingVencidos)
+            // 3. PROCESAR Y ACTUALIZAR CANAL POR CANAL
+            foreach (var canal in estadoActualFirebase)
             {
-                var ytVideo = infoDeYouTube.ContainsKey(item.Video.VideoId) ? infoDeYouTube[item.Video.VideoId] : null;
-                string status = ytVideo?.Snippet?.LiveBroadcastContent ?? "none";
+                var canalRef = firebase.Child("Channels").Child(canal.Key);
+                bool huboCambios = false;
 
-                var canalRef = firebase.Child("Channels").Child(item.ChannelKey);
-                var upcomingRef = canalRef.Child("Upcoming").Child(item.Video.VideoId);
-                var activeRef = canalRef.Child("Actives").Child(item.Video.VideoId);
-
-                // Nueva detección de estrenos compatible con la lógica del Webhook
-                bool tieneDuracion = ytVideo?.ContentDetails != null &&
-                                     ytVideo.ContentDetails.Duration != "P0D" &&
-                                     ytVideo.ContentDetails.Duration != "PT0D";
-
-                bool esEstreno = (status == "live" || status == "upcoming") && tieneDuracion;
-
-                if (status == "live")
+                // Preparar colección actual de vivos
+                var vivosActuales = canal.Object.Actives ?? new Dictionary<string, ActiveVideo>();
+                if (!vivosActuales.Any() && !string.IsNullOrEmpty(canal.Object.LiveVideoId))
                 {
-                    Console.WriteLine($"- {item.ChannelKey}: ¡El programado {item.Video.VideoId} está EN VIVO! Actualizando...");
+                    vivosActuales[canal.Object.LiveVideoId] = new ActiveVideo { VideoId = canal.Object.LiveVideoId };
+                }
 
-                    var nuevoActivo = new ActiveVideo
+                var vivosSobrevivientes = new List<ActiveVideo>();
+
+                // --- A. LIMPIEZA DE VIVOS ---
+                foreach (var kvp in vivosActuales.ToList())
+                {
+                    var ytVideo = infoDeYouTube.ContainsKey(kvp.Key) ? infoDeYouTube[kvp.Key] : null;
+                    if (ytVideo == null || ytVideo.Snippet?.LiveBroadcastContent != "live")
                     {
-                        VideoId = item.Video.VideoId,
-                        Title = item.Video.Title,
-                        ScheduledStartTime = item.Video.ScheduledStartTime,
-                        ThumbnailUrl = item.Video.ThumbnailUrl,
-                        AddedAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                        IsPremiere = esEstreno // <-- Guardamos si es estreno
-                    };
-
-                    // 1. LO AGREGAMOS A LA COLECCIÓN DE ACTIVOS
-                    await activeRef.PutAsync(nuevoActivo);
-
-                    // 2. SISTEMA DE ELECCIÓN DE GANADOR (Igual que en Webhook)
-                    // Agarramos los vivos que el canal ya tenía en la base de datos y le sumamos este nuevo
-                    var vivosActuales = item.CanalDB.Actives?.Values.ToList() ?? new List<ActiveVideo>();
-                    vivosActuales.Add(nuevoActivo);
-
-                    // Elegimos al ganador priorizando los Vivos Reales (False) sobre los Estrenos (True)
-                    var streamGanador = vivosActuales
-                        .OrderBy(v => v.IsPremiere)
-                        .ThenByDescending(v => v.AddedAt ?? "")
-                        .First();
-
-                    await canalRef.PatchAsync(new
-                    {
-                        ChannelLive = true,
-                        LiveVideoId = streamGanador.VideoId,
-                        ChannelImgLiveUrl = streamGanador.ThumbnailUrl,
-                        LastActivityAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                        IsPremiere = streamGanador.IsPremiere
-                    });
-
-                    if (streamGanador.VideoId != item.Video.VideoId)
-                    {
-                        Console.WriteLine($"> {item.ChannelKey}: Es un estreno y la portada se la quedó el vivo real ({streamGanador.VideoId}). Guardado silenciosamente.");
+                        Console.WriteLine($"- {canal.Key}: Matando stream fantasma {kvp.Key}...");
+                        await canalRef.Child("Actives").Child(kvp.Key).DeleteAsync();
+                        huboCambios = true;
                     }
-
-                    // 3. LO BORRAMOS DE UPCOMING
-                    await upcomingRef.DeleteAsync();
-                }
-                else if (status == "none")
-                {
-                    Console.WriteLine($"- {item.ChannelKey}: El programado {item.Video.VideoId} fue cancelado o no existe. Borrando...");
-                    await upcomingRef.DeleteAsync();
-                }
-                else if (status == "upcoming")
-                {
-                    if (DateTimeOffset.TryParse(item.Video.ScheduledStartTime, out var scheduledTime))
+                    else
                     {
-                        var horasAtrasado = (ahora - scheduledTime).TotalHours;
+                        vivosSobrevivientes.Add(kvp.Value);
+                    }
+                }
 
-                        if (horasAtrasado > 24)
+                // --- B. REVISIÓN DE UPCOMING ---
+                if (canal.Object.Upcoming != null)
+                {
+                    foreach (var upc in canal.Object.Upcoming)
+                    {
+                        if (DateTimeOffset.TryParse(upc.Value.ScheduledStartTime, out var scheduledTime) && scheduledTime <= ahora)
                         {
-                            Console.WriteLine($"- {item.ChannelKey}: El programado {item.Video.VideoId} superó las 24hs de gracia sin prender. Eliminándolo...");
-                            await upcomingRef.DeleteAsync();
+                            var ytVideo = infoDeYouTube.ContainsKey(upc.Key) ? infoDeYouTube[upc.Key] : null;
+                            string status = ytVideo?.Snippet?.LiveBroadcastContent ?? "none";
+                            var upcomingRef = canalRef.Child("Upcoming").Child(upc.Key);
+
+                            if (status == "live")
+                            {
+                                Console.WriteLine($"- {canal.Key}: ¡El programado {upc.Key} está EN VIVO! Movido a Actives.");
+                                bool tieneDuracion = ytVideo?.ContentDetails != null &&
+                                                     ytVideo.ContentDetails.Duration != "P0D" &&
+                                                     ytVideo.ContentDetails.Duration != "PT0D";
+
+                                var nuevoActivo = new ActiveVideo
+                                {
+                                    VideoId = upc.Value.VideoId,
+                                    Title = upc.Value.Title,
+                                    ScheduledStartTime = upc.Value.ScheduledStartTime,
+                                    ThumbnailUrl = upc.Value.ThumbnailUrl,
+                                    AddedAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                                    IsPremiere = tieneDuracion // Se setea en base a la evaluación del estreno
+                                };
+
+                                await canalRef.Child("Actives").Child(upc.Key).PutAsync(nuevoActivo);
+                                vivosSobrevivientes.Add(nuevoActivo);
+                                await upcomingRef.DeleteAsync();
+                                huboCambios = true;
+                            }
+                            else if (status == "none")
+                            {
+                                Console.WriteLine($"- {canal.Key}: El programado {upc.Key} fue cancelado o no existe. Borrando...");
+                                await upcomingRef.DeleteAsync();
+                            }
+                            else if (status == "upcoming")
+                            {
+                                var horasAtrasado = (ahora - scheduledTime).TotalHours;
+                                if (horasAtrasado > 24)
+                                {
+                                    Console.WriteLine($"- {canal.Key}: El programado {upc.Key} superó las 24hs. Eliminándolo...");
+                                    await upcomingRef.DeleteAsync();
+                                }
+                            }
                         }
-                        else
+                    }
+                }
+
+                // --- C. RECALCULAR FALLBACK SI HUBIERON CAMBIOS ---
+                if (huboCambios)
+                {
+                    if (vivosSobrevivientes.Any())
+                    {
+                        var streamGanador = vivosSobrevivientes
+                            .OrderBy(v => v.IsPremiere)
+                            .ThenByDescending(v => v.AddedAt ?? "")
+                            .First();
+
+                        Console.WriteLine($"> {canal.Key}: Recalculando... Portada global asignada a {streamGanador.VideoId}");
+
+                        await canalRef.PatchAsync(new
                         {
-                            Console.WriteLine($"- {item.ChannelKey}: El programado {item.Video.VideoId} sigue en espera ({Math.Round(horasAtrasado, 1)} hs de atraso).");
-                        }
+                            ChannelLive = true,
+                            LiveVideoId = streamGanador.VideoId,
+                            ChannelImgLiveUrl = streamGanador.ThumbnailUrl ?? canal.Object.ChannelImgLiveUrl,
+                            LastActivityAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                            IsPremiere = streamGanador.IsPremiere
+                        });
+                    }
+                    else
+                    {
+                        Console.WriteLine($"> {canal.Key}: No quedaron streams vivos. APAGANDO CANAL.");
+                        await canalRef.PatchAsync(new
+                        {
+                            ChannelLive = false,
+                            LiveVideoId = "",
+                            ChannelImgLiveUrl = "",
+                            LastActivityAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                            IsPremiere = false
+                        });
                     }
                 }
             }
+
+            Console.WriteLine("\n=== REVISIÓN UNIFICADA FINALIZADA ===");
         }
     }
 }
