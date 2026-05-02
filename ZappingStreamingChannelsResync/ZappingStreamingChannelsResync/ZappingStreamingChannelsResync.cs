@@ -2,29 +2,31 @@
 using Firebase.Database.Query;
 using Google.Apis.Services;
 using Google.Apis.YouTube.v3;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text.Json;
 using System.Text.Json.Serialization;
-using Newtonsoft.Json; // Agregado para el mapeo de Firebase
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace ZappingStreamingDBService
 {
-    public class ChannelOriginItem // Renombrado de GithubStreamItem
+    public class ChannelOriginItem
     {
-        [JsonProperty("title")] // Newtonsoft (Firebase)
-        [JsonPropertyName("title")] // System.Text.Json
+        [JsonProperty("title")]
+        [JsonPropertyName("title")]
         public string Title { get; set; }
 
-        [JsonProperty("channelId")]
-        [JsonPropertyName("channelId")]
+        // SOLO Newtonsoft lo ignora (para que no suba/baje redundante en Firebase).
+        // System.Text.Json SI lo lee (por si alguna vez hace falta).
+        [Newtonsoft.Json.JsonIgnore]
         public string ChannelId { get; set; }
 
         [JsonProperty("city")]
@@ -141,11 +143,14 @@ namespace ZappingStreamingDBService
         {
             _logger.LogInformation("Obteniendo lista base de canales desde ChannelsOrigin en Firebase...");
 
-            // Reemplazo: Consulta directa a ChannelsOrigin en vez de GitHub
-            var streams = await _firebaseClient.Child("ChannelsOrigin").OnceSingleAsync<List<ChannelOriginItem>>();
-
-            // (Opcional  recomendado) Firebase a veces deja valores "null" en los arrays si borrás algún elemento. 
-            streams = streams?.Where(x => x != null).ToList() ?? new List<ChannelOriginItem>();
+            // ACÁ LEEMOS COMO DICCIONARIO Y RESCATAMOS EL ID DE LA LLAVE
+            var originSnapshot = await _firebaseClient.Child("ChannelsOrigin").OnceAsync<ChannelOriginItem>();
+            var streams = originSnapshot.Select(x =>
+            {
+                var canal = x.Object;
+                canal.ChannelId = x.Key; // La magia: el nombre del nodo ("UC...") vuelve a la propiedad
+                return canal;
+            }).ToList();
 
             var canalesValidos = streams
                 .Where(s => !string.IsNullOrEmpty(s.ChannelId) && s.ChannelId.StartsWith("UC") && s.ChannelId.Length > 2)
@@ -260,10 +265,14 @@ namespace ZappingStreamingDBService
             _logger.LogInformation("Paso 4: Renovando suscripciones a Webhooks de YouTube...");
             try
             {
-                // Reemplazo: Consulta a Firebase en lugar del fetch HTTP a GitHub
-                var streams = await _firebaseClient.Child("ChannelsOrigin").OnceSingleAsync<List<ChannelOriginItem>>();
-
-                streams = streams?.Where(x => x != null).ToList() ?? new List<ChannelOriginItem>();
+                // ACÁ TAMBIÉN REPETIMOS EL PROCESO DE LECTURA Y RESCATE DE KEY
+                var originSnapshot = await _firebaseClient.Child("ChannelsOrigin").OnceAsync<ChannelOriginItem>();
+                var streams = originSnapshot.Select(x =>
+                {
+                    var canal = x.Object;
+                    canal.ChannelId = x.Key;
+                    return canal;
+                }).ToList();
 
                 var canalesValidos = streams.Where(s => !string.IsNullOrEmpty(s.ChannelId) && s.ChannelId.StartsWith("UC")).ToList();
 
