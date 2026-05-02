@@ -9,25 +9,29 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Text.Json;
 using System.Text.Json.Serialization;
+using Newtonsoft.Json; // Agregado para el mapeo de Firebase
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace ZappingStreamingDBService
 {
-    public class GithubStreamItem
+    public class ChannelOriginItem // Renombrado de GithubStreamItem
     {
-        [JsonPropertyName("title")]
+        [JsonProperty("title")] // Newtonsoft (Firebase)
+        [JsonPropertyName("title")] // System.Text.Json
         public string Title { get; set; }
 
+        [JsonProperty("channelId")]
         [JsonPropertyName("channelId")]
         public string ChannelId { get; set; }
 
+        [JsonProperty("city")]
         [JsonPropertyName("city")]
         public string City { get; set; }
 
+        [JsonProperty("category")]
         [JsonPropertyName("category")]
         public string Category { get; set; }
     }
@@ -46,7 +50,7 @@ namespace ZappingStreamingDBService
         public bool ChannelLive { get; set; }
         public string ChannelImgLiveUrl { get; set; }
         public string LiveVideoId { get; set; }
-        public bool IsPremiere { get; set; } 
+        public bool IsPremiere { get; set; }
 
         // --- NUEVAS COLECCIONES MULTI-ESTADO ---
         public Dictionary<string, UpcomingVideo> Upcoming { get; set; }
@@ -61,7 +65,7 @@ namespace ZappingStreamingDBService
         public string ThumbnailUrl { get; set; }
         public string AddedAt { get; set; }
         public bool Live { get; set; }
-        public bool IsPremiere { get; set; } 
+        public bool IsPremiere { get; set; }
     }
 
     public class ActiveVideo
@@ -72,7 +76,7 @@ namespace ZappingStreamingDBService
         public string ThumbnailUrl { get; set; }
         public string AddedAt { get; set; }
         public bool Live { get; set; }
-        public bool IsPremiere { get; set; } 
+        public bool IsPremiere { get; set; }
     }
 
     public class ZappingStreamingDBService : BackgroundService
@@ -82,8 +86,6 @@ namespace ZappingStreamingDBService
         private readonly YouTubeService _youtubeService;
         private readonly ILogger<ZappingStreamingDBService> _logger;
         private readonly IHostApplicationLifetime _appLifetime;
-
-        private const string JsonUrl = "https://raw.githubusercontent.com/zappingstreaming/argstreams/refs/heads/main/argstreams.json";
 
         public ZappingStreamingDBService(
             HttpClient httpClient,
@@ -137,8 +139,13 @@ namespace ZappingStreamingDBService
 
         private async Task ProcesarYActualizarCanalesAsync(CancellationToken cancellationToken)
         {
-            var response = await _httpClient.GetStringAsync(JsonUrl, cancellationToken);
-            var streams = JsonSerializer.Deserialize<List<GithubStreamItem>>(response) ?? new List<GithubStreamItem>();
+            _logger.LogInformation("Obteniendo lista base de canales desde ChannelsOrigin en Firebase...");
+
+            // Reemplazo: Consulta directa a ChannelsOrigin en vez de GitHub
+            var streams = await _firebaseClient.Child("ChannelsOrigin").OnceSingleAsync<List<ChannelOriginItem>>();
+
+            // (Opcional  recomendado) Firebase a veces deja valores "null" en los arrays si borrás algún elemento. 
+            streams = streams?.Where(x => x != null).ToList() ?? new List<ChannelOriginItem>();
 
             var canalesValidos = streams
                 .Where(s => !string.IsNullOrEmpty(s.ChannelId) && s.ChannelId.StartsWith("UC") && s.ChannelId.Length > 2)
@@ -146,7 +153,7 @@ namespace ZappingStreamingDBService
 
             if (!canalesValidos.Any())
             {
-                _logger.LogWarning("El JSON está vacío o sin canales válidos. Abortando sincronización.");
+                _logger.LogWarning("ChannelsOrigin está vacío o no tiene canales válidos. Abortando sincronización.");
                 return;
             }
 
@@ -189,7 +196,7 @@ namespace ZappingStreamingDBService
 
                     // Colecciones
                     Dictionary<string, UpcomingVideo> upcomingAnterior = null;
-                    Dictionary<string, ActiveVideo> activesAnterior = null; // NUEVA VARIABLE PARA VIVOS MÚLTIPLES
+                    Dictionary<string, ActiveVideo> activesAnterior = null;
 
                     if (canalesExistentes.TryGetValue(firebaseKey, out var canalAnterior))
                     {
@@ -199,7 +206,7 @@ namespace ZappingStreamingDBService
                             ? "2000-01-01T00:00:00Z"
                             : canalAnterior.LastActivityAt;
                         videoLiveIdAnterior = canalAnterior.LiveVideoId ?? "";
-                        isPremiereAnterior = canalAnterior.IsPremiere; // <-- 2. RESCATAMOS EL ESTADO
+                        isPremiereAnterior = canalAnterior.IsPremiere;
 
                         // RESCATAMOS LAS COLECCIONES
                         upcomingAnterior = canalAnterior.Upcoming;
@@ -223,12 +230,12 @@ namespace ZappingStreamingDBService
                         ChannelCity = stream.City,
                         ChannelType = stream.Category,
 
-                        // Mantenemos las properties legacy por si el front las sigue pidiendo
+                        // Mantenemos las properties legacy para compatibilidad
                         ChannelLive = estabaEnVivo,
                         ChannelImgLiveUrl = imgLiveUrlAnterior,
                         LastActivityAt = lastActivityAnterior,
                         LiveVideoId = videoLiveIdAnterior,
-                        IsPremiere = isPremiereAnterior, // <-- 3. DEVOLVEMOS INTACTO
+                        IsPremiere = isPremiereAnterior,
 
                         // DEVOLVEMOS LAS LISTAS INTACTAS AL FIREBASE
                         Upcoming = upcomingAnterior,
@@ -253,8 +260,11 @@ namespace ZappingStreamingDBService
             _logger.LogInformation("Paso 4: Renovando suscripciones a Webhooks de YouTube...");
             try
             {
-                var responseJson = await _httpClient.GetStringAsync(JsonUrl, cancellationToken);
-                var streams = JsonSerializer.Deserialize<List<GithubStreamItem>>(responseJson) ?? new List<GithubStreamItem>();
+                // Reemplazo: Consulta a Firebase en lugar del fetch HTTP a GitHub
+                var streams = await _firebaseClient.Child("ChannelsOrigin").OnceSingleAsync<List<ChannelOriginItem>>();
+
+                streams = streams?.Where(x => x != null).ToList() ?? new List<ChannelOriginItem>();
+
                 var canalesValidos = streams.Where(s => !string.IsNullOrEmpty(s.ChannelId) && s.ChannelId.StartsWith("UC")).ToList();
 
                 foreach (var str in canalesValidos)
