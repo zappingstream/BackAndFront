@@ -5,7 +5,6 @@
 @inject ZappingStreamingapp.Service.ZappingStreamService ChannelService
 @inject NavigationManager NavManager
 @inject IJSRuntime JSRuntime
-@inject HttpClient Http
 
 <PageTitle>Zapping Stream - El universo del streaming argentino</PageTitle>
 
@@ -14,15 +13,9 @@
     @* --- SECCIÓN FIJA (HEADER + BUSCADOR) --- *@
     <div class="sticky-top-section">
 
-        <div style="display: flex; justify-content: space-between; padding: 10px;">
-            <button class="info-btn" title="¿Cómo funciona?" @onclick="AbrirModalInfo">
-                ?
-            </button>
-
-            <button class="btn-oval" title="Actualizar canales" @onclick="ActualizarGrilla">
-                🔄 Actualizar Transmisiones
-            </button>
-        </div>
+        <button class="info-btn" title="¿Cómo funciona?" @onclick="AbrirModalInfo">
+            ?
+        </button>
 
         <header class="zapping-header">
             <img src="images/logo.png" alt="Zapping Stream" class="app-logo" />
@@ -34,8 +27,10 @@
                    placeholder="Buscar por canal o ciudad..."
                    @bind="SearchText"
                    @bind:event="oninput" />
+            <button class="refresh-btn" title="Actualizar canales" @onclick="RecargarCanales" disabled="@_isLoading">
+                ↻
+            </button>
         </div>
-
     </div>
 
     @* --- MODAL DE INFORMACIÓN (CÓMO USAR) --- *@
@@ -104,7 +99,7 @@
                                 <div class="image-container">
                                     @if (channel.ChannelLive && !string.IsNullOrEmpty(channel.ChannelImgLiveUrl))
                                     {
-                                        <img src="@channel.ChannelImgLiveUrl" alt="@channel.ChannelName" class="channel-logo" loading="lazy" referrerpolicy="no-referrer" />
+                                        <img src="@ObtenerImagenFresca(channel.ChannelImgLiveUrl, channel.LastActivityAt.ToLocalTime().ToString("dd/MM/yy - HH:mm"))" alt="@channel.ChannelName" class="channel-logo" loading="lazy" referrerpolicy="no-referrer" />
                                     }
                                     else if (!string.IsNullOrEmpty(channel.ChannelImgUrl))
                                     {
@@ -119,9 +114,18 @@
 
                                     @if (channel.ChannelLive)
                                     {
-                                        <div class="badge-vivo">
-                                            <span class="punto-rojo"></span> EN VIVO
-                                        </div>
+                                        @if (channel.IsPremiere)
+                                        {
+                                            <div class="badge-estreno">
+                                                <span class="punto-azul"></span> ESTRENO
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="badge-vivo">
+                                                <span class="punto-rojo"></span> EN VIVO
+                                            </div>
+                                        }
                                     }
                                 </div>
 
@@ -234,24 +238,6 @@
         return stringBuilder.ToString().Normalize(NormalizationForm.FormC);
     }
 
-    private async Task ActualizarGrilla()
-    {
-        // 1. Mostramos el spinner de carga
-        _isLoading = true;
-        StateHasChanged();
-
-        // 2. Le damos un respiro mínimo a la interfaz para que dibuje el spinner
-        await Task.Delay(50);
-
-        // 3. Vamos a buscar los canales frescos a Firebase
-        _channels = await ChannelService.GetChannelsAsync();
-        _metadata = await ChannelService.GetLastSyncDateTime();
-
-        // 4. Apagamos el spinner y Blazor dibuja la grilla actualizada automáticamente
-        _isLoading = false;
-        StateHasChanged();
-    }
-
     private IEnumerable<FirebaseChannel> FilteredChannels
     {
         get
@@ -306,9 +292,21 @@
     {
         string urlDestino = canal.ChannelLiveUrl;
 
-        if (!string.IsNullOrEmpty(urlDestino))
+        if (canal.ChannelLive)
         {
+            if (canal.IsPremiere && !string.IsNullOrEmpty(canal.LiveVideoId))
+            {
+                urlDestino = $"https://www.youtube.com/watch?v={canal.LiveVideoId}";
+            }
+
             await JSRuntime.InvokeVoidAsync("navegarYouTube", urlDestino);
+        }
+        else
+        {
+            if (!string.IsNullOrEmpty(urlDestino))
+            {
+                await JSRuntime.InvokeVoidAsync("navegarYouTube", urlDestino.Replace("/live", ""));
+            }
         }
     }
 
@@ -326,6 +324,22 @@
         }
     }
 
+    private async Task RecargarCanales()
+    {
+        await CargarDatosAsync();
+    }
+
+    private async Task CargarDatosAsync()
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        _channels = await ChannelService.GetChannelsAsync();
+        _metadata = await ChannelService.GetLastSyncDateTime();
+
+        _isLoading = false;
+    }
+
     private void CerrarTodasLasTarjetas()
     {
         _expandedChannels.Clear();
@@ -333,7 +347,6 @@
 
     private bool IsExpanded(string channelName) => _expandedChannels.Contains(channelName ?? string.Empty);
 
-    // --- MÉTODOS DEL MODAL DE INFORMACIÓN ---
     private void AbrirModalInfo()
     {
         _mostrarModalInfo = true;
@@ -346,23 +359,29 @@
 
     private string ObtenerTextoActividad(FirebaseChannel canal)
     {
-        return $"Ultima Actividad: {canal.LastActivityAt.ToLocalTime().ToString("dd/MM/yy - HH:mm")} hs";
+        if (canal.LastActivityAt == default(DateTime) || canal.LastActivityAt.Year == 2000)
+            return "Sin actividad registrada";
+
+        var diferencia = DateTime.UtcNow - canal.LastActivityAt.ToUniversalTime();
+
+        if (diferencia.TotalDays > 365)
+        {
+            return "Sin actividad registrada";
+        }
+
+        return $"Última Actividad: {canal.LastActivityAt.ToLocalTime().ToString("dd/MM/yy - HH:mm")} hs";
     }
 
-    private string FormatearSincro(string lastSynced)
+    private string ObtenerImagenFresca(string url, string lastActivityAt)
     {
-        if (DateTimeOffset.TryParse(lastSynced, null, System.Globalization.DateTimeStyles.AssumeUniversal, out var fecha))
-        {
-            var ahora = DateTimeOffset.Now;
-            var diff = ahora - fecha;
-            var minutos = diff.TotalMinutes;
+        if (string.IsNullOrEmpty(url)) return url;
 
-            if (minutos < 0) return "---";
-            if (minutos < 1) return "ahora mismo";
-            if (minutos < 60) return $"hace {Math.Floor(minutos)} min";
+        string cacheBuster = string.IsNullOrEmpty(lastActivityAt)
+            ? DateTime.UtcNow.Ticks.ToString()
+            : Uri.EscapeDataString(lastActivityAt);
 
-            return fecha.ToLocalTime().ToString("HH:mm") + " hs";
-        }
-        return "---";
+        string conector = url.Contains("?") ? "&" : "?";
+
+        return $"{url}{conector}act={cacheBuster}";
     }
 }

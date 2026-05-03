@@ -40,25 +40,15 @@
             will-change: transform, opacity;
         }
 
-        .spinner-loader {
-            width: 10px;
-            height: 1px;
-            border: 4px solid rgba(255, 255, 255, 0.1);
-            border-left-color: #38B6FF;
-            border-radius: 50%;
-            animation: giro 1s linear infinite;
-            margin-bottom: 20px;
-        }
-
         .loading-row {
             display: flex;
-            align-items: center; 
+            align-items: center;
             justify-content: center;
-            gap: 15px; 
+            gap: 15px;
         }
 
         .spinner-loader {
-            width: 25px; 
+            width: 25px;
             height: 25px;
             border: 4px solid rgba(255, 255, 255, 0.1);
             border-left-color: #38B6FF;
@@ -75,8 +65,6 @@
                 transform: rotate(360deg);
             }
         }
-
-
     </style>
 </head>
 
@@ -84,12 +72,9 @@
     <div id="app">
         <div class="pantalla-carga">
             <img src="favicon.png" alt="Cargando Zapping Stream" class="loading-logo" />
-
             <div class="loading-row">
                 <div class="spinner-loader"></div>
-                <!--<div class="texto-loader">Cargando...</div>-->
             </div>
-
         </div>
     </div>
 
@@ -100,6 +85,7 @@
     </div>
 
     <script src="_framework/blazor.webview.js" autostart="false"></script>
+
     <script>
 
         document.addEventListener("DOMContentLoaded", function () {
@@ -114,7 +100,9 @@
 
             }, 500);
 
-        });</script>
+        });
+    </script>
+
 
     <script>
         let isDown = false;
@@ -172,29 +160,10 @@
         }, true);
     </script>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-
-        // Tus coordenadas exactas (con el guion corregido)
-        const firebaseConfig = {
-            apiKey: "AIzaSyAnymUVsnZdWfjRWgh0uLxaVmW4zb6GZWE",
-            authDomain: "zapping-streaming.firebaseapp.com",
-            databaseURL: "https://zapping-streaming-default-rtdb.firebaseio.com",
-            projectId: "zapping-streaming",
-            storageBucket: "zapping-streaming.firebasestorage.app",
-            messagingSenderId: "593976978663",
-            appId: "1:593976978663:web:c57204672e0ed0a5708642",
-            measurementId: "G-6FGQ48456S"
-        };
-
-        // Inicialización directa y sin seguridad extra.
-        const app = initializeApp(firebaseConfig);
-    </script>
-
     <script>
-        // Tu función para abrir los vivos de YouTube intacta.
         window.navegarYouTube = (url) => {
             const esTVoMovil = /Android|webOS|Tizen|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
             if (esTVoMovil) {
                 window.location.href = url;
             } else {
@@ -202,14 +171,85 @@
             }
         };
 
-        // ----------------------------------------------------------------------
-        // PARACAÍDAS DE EMERGENCIA:
-        // Dejamos estas funciones "vacías" para que devuelvan null silenciosamente.
-        // Así, si te olvidaste de borrar la llamada a JSInterop en tu código C#,
-        // la app de la tele no explota y sigue funcionando lo más bien.
-        // ----------------------------------------------------------------------
-        window.getFirebaseAppCheckToken = async () => { return null; };
-        window.getSafeFirebaseToken = async () => { return null; };
+        window.getSafeFirebaseToken = async () => {
+            let intentos = 0;
+            while (typeof window.getFirebaseAppCheckToken === 'undefined' && intentos < 50) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                intentos++;
+            }
+            if (typeof window.getFirebaseAppCheckToken !== 'undefined') {
+                return await window.getFirebaseAppCheckToken();
+            }
+            console.error("Firebase no cargó a tiempo.");
+            return null;
+        };
+    </script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+        import { initializeAppCheck, ReCaptchaV3Provider, getToken } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app-check.js";
+        import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnymUVsnZdWfjRWgh0uLxaVmW4zb6GZWE",
+            authDomain: "zappingstreaming.firebaseapp.com",
+            databaseURL: "https://zappingstreaming-default-rtdb.firebaseio.com",
+            projectId: "zappingstreaming",
+            storageBucket: "zappingstreaming.firebasestorage.app",
+            messagingSenderId: "593976978663",
+            appId: "1:593976978663:web:c57204672e0ed0a5708642",
+            measurementId: "G-6FGQ48456S"
+        };
+
+        const app = initializeApp(firebaseConfig);
+
+        if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+            self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+            console.log("🛠️ Modo App Check Debug activado");
+        } else {
+            self.FIREBASE_APPCHECK_DEBUG_TOKEN = false;
+        }
+
+        window.appCheck = initializeAppCheck(app, {
+            provider: new ReCaptchaV3Provider('6LfZT7ssAAAAADaZNAxdBH9qvGJuceUt3Yzwb_hz'),
+            isTokenAutoRefreshEnabled: true
+        });
+
+        window.getFirebaseAppCheckToken = async () => {
+            try {
+                const appCheckTokenResponse = await getToken(window.appCheck, false);
+                return appCheckTokenResponse.token;
+            } catch (err) {
+                console.error("Error obteniendo el token de App Check:", err);
+                return null;
+            }
+        };
+
+        const db = getDatabase(app);
+
+        window.traerCanalesFirebase = async () => {
+            try {
+                const dbRef = ref(db);
+                const snapshot = await get(child(dbRef, 'Channels'));
+                if (snapshot.exists()) {
+                    return snapshot.val();
+                }
+                return null;
+            } catch (error) {
+                console.error("Error trayendo canales desde JS:", error);
+                return null;
+            }
+        };
+
+        window.traerMetaFirebase = async () => {
+            try {
+                const dbRef = ref(db);
+                const snapshot = await get(child(dbRef, 'Meta'));
+                return snapshot.exists() ? snapshot.val() : null;
+            } catch (error) {
+                return null;
+            }
+        };
     </script>
 </body>
 </html>

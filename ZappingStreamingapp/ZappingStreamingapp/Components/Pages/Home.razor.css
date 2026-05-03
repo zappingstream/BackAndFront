@@ -21,6 +21,36 @@
     border: 1px solid #333;
 }
 
+.refresh-btn {
+    background-color: #222;
+    color: #38B6FF;
+    border: 1px solid #38B6FF;
+    border-radius: 40px;
+    width: 45px;
+    height: 45px;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.3s ease;
+    margin-top: 8px;
+    margin-left: 10px;
+}
+
+    .refresh-btn:hover:not(:disabled) {
+        background-color: #38B6FF;
+        color: #000;
+    }
+
+    .refresh-btn:disabled {
+        border-color: #555;
+        color: #555;
+        cursor: not-allowed;
+        background-color: #111;
+    }
+
 .zapping-container {
     min-height: 100vh;
     background-color: #000;
@@ -46,22 +76,8 @@
     padding-right: 20px;
 }
 
-.btn-oval {
-    background-color: #000;
-    color: #38B6FF;
-    border: solid;
-    border-color: #38B6FF;
-    border-radius: 50px;
-    padding: 8px 20px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-}
-
 .info-btn {
+    position: absolute;
     top: 20px;
     right: 20px;
     background-color: transparent;
@@ -502,6 +518,46 @@ html, body {
     to {
         opacity: 0.3;
         box-shadow: none;
+    }
+}
+
+.badge-estreno {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background-color: rgba(0, 102, 255, 0.85);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: bold;
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.7);
+    pointer-events: none;
+    z-index: 2;
+    border: 1px solid #4da6ff !important;
+}
+
+.punto-azul {
+    width: 6px;
+    height: 6px;
+    background-color: white;
+    border-radius: 50%;
+    display: inline-block;
+    animation: titilar-azul 1.2s infinite alternate;
+}
+
+@keyframes titilar-azul {
+    0% {
+        opacity: 1;
+        box-shadow: 0 0 8px #66b3ff;
+    }
+
+    100% {
+        opacity: 0.4;
+        box-shadow: 0 0 2px #66b3ff;
     }
 }
 
