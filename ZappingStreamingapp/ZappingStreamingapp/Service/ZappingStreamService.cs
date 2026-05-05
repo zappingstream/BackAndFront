@@ -1,4 +1,5 @@
 ﻿using Microsoft.JSInterop;
+using System.Net.Http.Json;
 
 namespace ZappingStreamingapp.Service
 {
@@ -27,19 +28,23 @@ namespace ZappingStreamingapp.Service
 
     public class ZappingStreamService
     {
-        private readonly IJSRuntime _jsRuntime;
+        private readonly HttpClient _httpClient;
 
-        // Inyectamos SOLO el IJSRuntime (ya no usamos HttpClient para las llamadas a la DB)
-        public ZappingStreamService(IJSRuntime jsRuntime)
+        private const string FirebaseDbUrl = "https://zappingstreaming-default-rtdb.firebaseio.com/Channels.json";
+        private const string FirebaseDbLastSync = "https://zappingstreaming-default-rtdb.firebaseio.com/Meta.json";
+
+        // 2. Inyectamos el IJSRuntime en el constructor
+        public ZappingStreamService(HttpClient httpClient, IJSRuntime jsRuntime)
         {
-            _jsRuntime = jsRuntime;
+            _httpClient = httpClient;
         }
+
 
         public async Task<FirebaseDBMeta> GetLastSyncDateTime()
         {
             try
             {
-                var firebaseMetaData = await _jsRuntime.InvokeAsync<FirebaseDBMeta>("traerMetaFirebase");
+                var firebaseMetaData = await _httpClient.GetFromJsonAsync<FirebaseDBMeta>(FirebaseDbLastSync);
 
                 if (firebaseMetaData != null)
                 {
@@ -58,7 +63,7 @@ namespace ZappingStreamingapp.Service
         {
             try
             {
-                var firebaseData = await _jsRuntime.InvokeAsync<Dictionary<string, FirebaseChannel>>("traerCanalesFirebase");
+                var firebaseData = await _httpClient.GetFromJsonAsync<Dictionary<string, FirebaseChannel>>(FirebaseDbUrl);
 
                 if (firebaseData != null)
                 {

@@ -87,19 +87,41 @@
     <script src="_framework/blazor.webview.js" autostart="false"></script>
 
     <script>
-
         document.addEventListener("DOMContentLoaded", function () {
+            let intentosBlazor = 0;
 
-            // Le damos un respiro de 500ms al WebView de Android
+            // Hacemos el log global para que los demás scripts también puedan usarlo
 
-            // para que termine de inyectar el puente 'window.external'
+            function iniciarBlazor() {
 
-            setTimeout(function () {
+                if (window.Blazor) {
 
-                Blazor.start().catch(err => console.error("Error al iniciar Blazor: ", err));
+                    Blazor.start().then(() => {
+                        // Limpiamos la bandera de recarga si todo salió bien
+                        sessionStorage.removeItem('zombie_reloaded');
+                    }).catch(err => {
 
-            }, 500);
+                        // --- ACÁ ESTÁ LA MAGIA PARA SALVAR EL ERROR ---
+                        if (err.message.includes('receiveMessage') || err.message.includes('not a function')) {
+                            // Verificamos no haber recargado ya para evitar un loop infinito
+                            if (!sessionStorage.getItem('zombie_reloaded')) {
+                                sessionStorage.setItem('zombie_reloaded', 'true');
 
+                                // Recargamos el WebView
+                                setTimeout(() => { window.location.reload(); }, 200);
+                            } else {
+                            }
+                        }
+                    });
+                } else if (intentosBlazor < 60) {
+                    intentosBlazor++;
+                    setTimeout(iniciarBlazor, 50);
+                } else {
+                }
+            }
+
+            // Damos un margen inicial mínimo por el cold boot zombie de Android
+            setTimeout(iniciarBlazor, 200);
         });
     </script>
 
@@ -171,85 +193,8 @@
             }
         };
 
-        window.getSafeFirebaseToken = async () => {
-            let intentos = 0;
-            while (typeof window.getFirebaseAppCheckToken === 'undefined' && intentos < 50) {
-                await new Promise(resolve => setTimeout(resolve, 100));
-                intentos++;
-            }
-            if (typeof window.getFirebaseAppCheckToken !== 'undefined') {
-                return await window.getFirebaseAppCheckToken();
-            }
-            console.error("Firebase no cargó a tiempo.");
-            return null;
-        };
+    
     </script>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-        import { initializeAppCheck, ReCaptchaV3Provider, getToken } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app-check.js";
-        import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyAnymUVsnZdWfjRWgh0uLxaVmW4zb6GZWE",
-            authDomain: "zappingstreaming.firebaseapp.com",
-            databaseURL: "https://zappingstreaming-default-rtdb.firebaseio.com",
-            projectId: "zappingstreaming",
-            storageBucket: "zappingstreaming.firebasestorage.app",
-            messagingSenderId: "593976978663",
-            appId: "1:593976978663:web:c57204672e0ed0a5708642",
-            measurementId: "G-6FGQ48456S"
-        };
-
-        const app = initializeApp(firebaseConfig);
-
-        if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-            self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-            console.log("🛠️ Modo App Check Debug activado");
-        } else {
-            self.FIREBASE_APPCHECK_DEBUG_TOKEN = false;
-        }
-
-        window.appCheck = initializeAppCheck(app, {
-            provider: new ReCaptchaV3Provider('6LfZT7ssAAAAADaZNAxdBH9qvGJuceUt3Yzwb_hz'),
-            isTokenAutoRefreshEnabled: true
-        });
-
-        window.getFirebaseAppCheckToken = async () => {
-            try {
-                const appCheckTokenResponse = await getToken(window.appCheck, false);
-                return appCheckTokenResponse.token;
-            } catch (err) {
-                console.error("Error obteniendo el token de App Check:", err);
-                return null;
-            }
-        };
-
-        const db = getDatabase(app);
-
-        window.traerCanalesFirebase = async () => {
-            try {
-                const dbRef = ref(db);
-                const snapshot = await get(child(dbRef, 'Channels'));
-                if (snapshot.exists()) {
-                    return snapshot.val();
-                }
-                return null;
-            } catch (error) {
-                console.error("Error trayendo canales desde JS:", error);
-                return null;
-            }
-        };
-
-        window.traerMetaFirebase = async () => {
-            try {
-                const dbRef = ref(db);
-                const snapshot = await get(child(dbRef, 'Meta'));
-                return snapshot.exists() ? snapshot.val() : null;
-            } catch (error) {
-                return null;
-            }
-        };
-    </script>
 </body>
 </html>
