@@ -87,7 +87,6 @@
 
             <div class="loading-row">
                 <div class="spinner-loader"></div>
-                <!--<div class="texto-loader">Cargando...</div>-->
             </div>
 
         </div>
@@ -159,16 +158,11 @@
     </script>
     <script>
         window.navegarYouTube = (url) => {
-            // Detectamos si es una TV (Android TV, Tizen, WebOS) o Móvil
             const esTVoMovil = /Android|webOS|Tizen|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
             if (esTVoMovil) {
-                // En TVs y Celulares, lo mejor es navegar en la misma pestaña.
-                // Esto le da la oportunidad al sistema de decir:
-                // "¡Ey! Este link es de YouTube, ¿querés abrirlo con la app?"
                 window.location.href = url;
             } else {
-                // En la compu, abrimos pestaña nueva para no cerrar tu grilla.
                 window.open(url, "_blank");
             }
         };
@@ -190,7 +184,6 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
         import { initializeAppCheck, ReCaptchaV3Provider, getToken } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app-check.js";
-        // 1. Agregamos el import de la Database
         import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
 
         const firebaseConfig = {

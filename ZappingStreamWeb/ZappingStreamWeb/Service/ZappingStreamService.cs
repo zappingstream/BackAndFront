@@ -3,47 +3,56 @@ using Microsoft.JSInterop;
 
 namespace ZappingStreamWebServer.Service
 {
-    // --- MODELOS DE DATOS ---
+    // --- MODELO DE DATOS (Parcial) ---
     public class FirebaseChannel
     {
+        // El nombre del canal
         public string ChannelName { get; set; }
+        // La descripción del canal
         public string ChannelDescription { get; set; }
+        // La ciudad donde transmite el canal
         public string ChannelCity { get; set; }
+        // El tipo de canal: Stream, Personal, Television, Radio
         public string ChannelType { get; set; }
+        // La url live del canal
         public string ChannelLiveUrl { get; set; }
+        // El logo del canal
         public string ChannelImgUrl { get; set; }
-
-        // Legacy
+        // La imagen del video live del canal
         public string ChannelImgLiveUrl { get; set; }
+        // booleano que indica si un canal está en vivo o no
         public bool ChannelLive { get; set; }
+        // El videoId del vivo (Sirve unicamente para los estrenos, el link para los vivos se hace con ChannelId/live
         public string LiveVideoId { get; set; }
+        // La última actividad del canal
         public DateTime LastActivityAt { get; set; }
-        public bool IsPremiere { get; set; } // <-- NUEVO
+        // Indica si es un estreno
+        public bool IsPremiere { get; set; } 
     }
 
-
+    // La última fecha en que la base fué sincronizada
     public class FirebaseDBMeta
     {
         public DateTime LastSynced { get; set; } = DateTime.MinValue;
     }
 
+    // El servicio
     public class ZappingStreamService
     {
-        private readonly IJSRuntime _jsRuntime; // 1. Agregamos el JSRuntime
+        // Agregamos el JSRuntime
+        private readonly IJSRuntime _jsRuntime;
 
 
-        // 2. Inyectamos el IJSRuntime en el constructor
+        // Inyectamos el IJSRuntime en el constructor
         public ZappingStreamService(HttpClient httpClient, IJSRuntime jsRuntime)
         {
             _jsRuntime = jsRuntime;
         }
 
-        // 3. Este es el método mágico que busca el token y lo inyecta
       
+        // Función que devuelve la metadata de la base de datos
         public async Task<FirebaseDBMeta> GetLastSyncDateTime()
         {
-            // 4. Antes de hacer la petición, adjuntamos el token de seguridad
-
             try
             {
                 var firebaseMetaData = await _jsRuntime.InvokeAsync<FirebaseDBMeta>("traerMetaFirebase");
@@ -61,9 +70,9 @@ namespace ZappingStreamWebServer.Service
             return new FirebaseDBMeta();
         }
 
+        // Función que devuelve asincrónicamente todos los canales
         public async Task<List<FirebaseChannel>> GetChannelsAsync()
         {
-            // 5. Acá también adjuntamos el token de seguridad antes de pedir la grilla
 
             try
             {

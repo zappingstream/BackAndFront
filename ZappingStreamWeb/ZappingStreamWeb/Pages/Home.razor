@@ -207,20 +207,30 @@
 
 
 @code {
+    // La lista de canales
     private List<FirebaseChannel>? _channels;
+    // La metadata de la base
     private FirebaseDBMeta? _metadata;
+    // Un booleano que indica que está cargando
     private bool _isLoading = true;
 
     // --- VARIABLES PARA EL MODAL DE INFORMACIÓN ---
     private bool _mostrarModalInfo = false;
 
+    // El texto de búsqueda
     private string _searchText = "";
+    // El texto de búsqueda (propiedad)
     private string SearchText
     {
         get => _searchText;
         set { _searchText = value; }
     }
 
+    /// <summary>
+    /// Normalizar el texto eliminando acentos, tildes, signos por la letra 
+    /// </summary>
+    /// <param name="text"></param>
+    /// <returns></returns>
     private static string RemoveDiacritics(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return text;
@@ -241,6 +251,9 @@
         return stringBuilder.ToString().Normalize(NormalizationForm.FormC);
     }
 
+    /// <summary>
+    /// Filtrado de canales por texto ´de búsqueda
+    /// </summary>
     private IEnumerable<FirebaseChannel> FilteredChannels
     {
         get
@@ -261,38 +274,47 @@
         }
     }
 
+    // Canales Full Stream
     private IEnumerable<FirebaseChannel> Streams => FilteredChannels
             .Where(c => c.ChannelType != null && c.ChannelType.Contains("stream", StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(c => c.ChannelLive)
             .ThenByDescending(c => c.LastActivityAt);
 
+    // Canales Personales
     private IEnumerable<FirebaseChannel> PersonalStreams => FilteredChannels
         .Where(c => c.ChannelType != null && c.ChannelType.Contains("personal", StringComparison.OrdinalIgnoreCase))
         .OrderByDescending(c => c.ChannelLive)
         .ThenByDescending(c => c.LastActivityAt);
 
+    // Canales de television (Algunos tienen su streaming)
     private IEnumerable<FirebaseChannel> Televisions => FilteredChannels
         .Where(c => c.ChannelType != null && c.ChannelType.Contains("television", StringComparison.OrdinalIgnoreCase))
         .OrderByDescending(c => c.ChannelLive)
         .ThenByDescending(c => c.LastActivityAt);
 
+    // Canales de radio
     private IEnumerable<FirebaseChannel> Radios => FilteredChannels
         .Where(c => c.ChannelType != null && c.ChannelType.Contains("radio", StringComparison.OrdinalIgnoreCase))
         .OrderByDescending(c => c.ChannelLive)
         .ThenByDescending(c => c.LastActivityAt);
 
+    // Canales expandidos
     private HashSet<string> _expandedChannels = new();
 
     protected override async Task OnInitializedAsync()
     {
+        // Obtenemos los canales
         _channels = await ChannelService.GetChannelsAsync();
+        // Obtenemos la metadata de la base
         _metadata = await ChannelService.GetLastSyncDateTime();
 
         _isLoading = false;
     }
 
+    // Método que abre un canal
     private async Task AbrirCanal(FirebaseChannel canal)
     {
+
         string urlDestino = canal.ChannelLiveUrl;
 
         if (canal.ChannelLive)
@@ -369,8 +391,7 @@
 
     private string ObtenerTextoActividad(FirebaseChannel canal)
     {
-        // En C#, si un DateTime viene vacío de Firebase, toma el valor "default" (año 0001)
-        // También chequeamos nuestra fecha comodín del año 2000
+        // Si el canal es recién agregado (Año = 2000)
         if (canal.LastActivityAt == default(DateTime) || canal.LastActivityAt.Year == 2000)
             return "Sin actividad registrada";
 
@@ -387,6 +408,7 @@
         return $"Última Actividad: {canal.LastActivityAt.ToLocalTime().ToString("dd/MM/yy - HH:mm")} hs";
     }
 
+    // Formatear Sincro
     private string FormatearSincro(string lastSynced)
     {
         if (DateTimeOffset.TryParse(lastSynced, null, System.Globalization.DateTimeStyles.AssumeUniversal, out var fecha))
