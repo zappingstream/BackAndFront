@@ -11,7 +11,6 @@
 
 <div class="zapping-container">
 
-    @* --- SECCIÓN FIJA (HEADER + BUSCADOR) --- *@
     <div class="sticky-top-section">
 
         <button class="info-btn" title="¿Cómo funciona?" @onclick="AbrirModalInfo">
@@ -32,11 +31,9 @@
                 ↻
             </button>
         </div>
-      
 
     </div>
 
-    @* --- MODAL DE INFORMACIÓN (CÓMO USAR) --- *@
     @if (_mostrarModalInfo)
     {
         <div class="modal-overlay" @onclick="CerrarModalInfo">
@@ -57,7 +54,6 @@
         </div>
     }
 
-    @* --- CUERPO PRINCIPAL --- *@
     @if (_isLoading)
     {
         <div class="status-message">
@@ -77,10 +73,27 @@
         {
             if (categoryChannels.Any())
             {
+                bool separatorShown = false;
                 <h2 class="category-title">@title</h2>
                 <div class="channel-row">
+                    @if (categoryChannels.Where(c => c.ChannelLive).Count() > 0)
+                    {
+                        <div class="videostatus">
+                            <span class="videostatusspan">AHORA</span>
+                            <div class="videostatusend"></div>
+                        </div>                        
+                    }
                     @foreach (var channel in categoryChannels)
                     {
+                        if (!channel.ChannelLive && !separatorShown)
+                        {
+                            <div class="videostatus">
+                                <span class="videostatusspan">ONDEMAND</span>
+                                <div class="videostatusend"></div>
+                            </div>
+                            separatorShown = true;
+                        }
+
                         <div class="card-wrapper">
                             <div class="channel-card @(IsExpanded(channel.ChannelName) ? "expanded-card" : null)"
                                  tabindex="0"
@@ -117,7 +130,7 @@
 
                                     @if (channel.ChannelLive)
                                     {
-                                        @if (channel.IsPremiere)
+                                        if (channel.IsPremiere)
                                         {
                                             <div class="badge-estreno">
                                                 <span class="punto-azul"></span> ESTRENO
@@ -169,7 +182,6 @@
         </div>
     }
 
-    @* --- FOOTER / CONTACTO --- *@
     @if (!_isLoading)
     {
         <div class="footer-section">
@@ -198,39 +210,26 @@
         </div>
     }
 
-    @* --- OVERLAY OSCURO DE FONDO --- *@
     @if (_expandedChannels.Any())
     {
         <div class="fullscreen-overlay" @onclick="CerrarTodasLasTarjetas"></div>
     }
 </div>
 
-
 @code {
-    // La lista de canales
     private List<FirebaseChannel>? _channels;
-    // La metadata de la base
     private FirebaseDBMeta? _metadata;
-    // Un booleano que indica que está cargando
     private bool _isLoading = true;
 
-    // --- VARIABLES PARA EL MODAL DE INFORMACIÓN ---
     private bool _mostrarModalInfo = false;
 
-    // El texto de búsqueda
     private string _searchText = "";
-    // El texto de búsqueda (propiedad)
     private string SearchText
     {
         get => _searchText;
         set { _searchText = value; }
     }
 
-    /// <summary>
-    /// Normalizar el texto eliminando acentos, tildes, signos por la letra 
-    /// </summary>
-    /// <param name="text"></param>
-    /// <returns></returns>
     private static string RemoveDiacritics(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return text;
@@ -251,9 +250,6 @@
         return stringBuilder.ToString().Normalize(NormalizationForm.FormC);
     }
 
-    /// <summary>
-    /// Filtrado de canales por texto ´de búsqueda
-    /// </summary>
     private IEnumerable<FirebaseChannel> FilteredChannels
     {
         get
@@ -274,63 +270,50 @@
         }
     }
 
-    // Canales Full Stream
     private IEnumerable<FirebaseChannel> Streams => FilteredChannels
             .Where(c => c.ChannelType != null && c.ChannelType.Contains("stream", StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(c => c.ChannelLive)
             .ThenByDescending(c => c.LastActivityAt);
 
-    // Canales Personales
     private IEnumerable<FirebaseChannel> PersonalStreams => FilteredChannels
         .Where(c => c.ChannelType != null && c.ChannelType.Contains("personal", StringComparison.OrdinalIgnoreCase))
         .OrderByDescending(c => c.ChannelLive)
         .ThenByDescending(c => c.LastActivityAt);
 
-    // Canales de television (Algunos tienen su streaming)
     private IEnumerable<FirebaseChannel> Televisions => FilteredChannels
         .Where(c => c.ChannelType != null && c.ChannelType.Contains("television", StringComparison.OrdinalIgnoreCase))
         .OrderByDescending(c => c.ChannelLive)
         .ThenByDescending(c => c.LastActivityAt);
 
-    // Canales de radio
     private IEnumerable<FirebaseChannel> Radios => FilteredChannels
         .Where(c => c.ChannelType != null && c.ChannelType.Contains("radio", StringComparison.OrdinalIgnoreCase))
         .OrderByDescending(c => c.ChannelLive)
         .ThenByDescending(c => c.LastActivityAt);
 
-    // Canales expandidos
     private HashSet<string> _expandedChannels = new();
 
     protected override async Task OnInitializedAsync()
     {
-        // Obtenemos los canales
         _channels = await ChannelService.GetChannelsAsync();
-        // Obtenemos la metadata de la base
         _metadata = await ChannelService.GetLastSyncDateTime();
-
         _isLoading = false;
     }
 
-    // Método que abre un canal
     private async Task AbrirCanal(FirebaseChannel canal)
     {
-
         string urlDestino = canal.ChannelLiveUrl;
 
         if (canal.ChannelLive)
         {
-            // Si es un estreno y tenemos el ID del video, armamos el link directo al video
             if (canal.IsPremiere && !string.IsNullOrEmpty(canal.LiveVideoId))
             {
                 urlDestino = $"https://www.youtube.com/watch?v={canal.LiveVideoId}";
             }
-            // Si es un stream normal, urlDestino sigue siendo el "/live" genérico
 
             await JSRuntime.InvokeVoidAsync("navegarYouTube", urlDestino);
         }
         else
         {
-            // Si el canal está apagado, vamos al perfil principal
             if (!string.IsNullOrEmpty(urlDestino))
             {
                 await JSRuntime.InvokeVoidAsync("navegarYouTube", urlDestino.Replace("/live", ""));
@@ -359,15 +342,12 @@
 
     private async Task CargarDatosAsync()
     {
-        // 1. Prendemos el loader y forzamos a la UI a dibujarlo
         _isLoading = true;
         StateHasChanged();
 
-        // 2. Vamos a buscar los datos frescos a JS/Firebase
         _channels = await ChannelService.GetChannelsAsync();
         _metadata = await ChannelService.GetLastSyncDateTime();
 
-        // 3. Apagamos el loader
         _isLoading = false;
     }
 
@@ -378,7 +358,6 @@
 
     private bool IsExpanded(string channelName) => _expandedChannels.Contains(channelName ?? string.Empty);
 
-    // --- MÉTODOS DEL MODAL DE INFORMACIÓN ---
     private void AbrirModalInfo()
     {
         _mostrarModalInfo = true;
@@ -391,24 +370,19 @@
 
     private string ObtenerTextoActividad(FirebaseChannel canal)
     {
-        // Si el canal es recién agregado (Año = 2000)
         if (canal.LastActivityAt == default(DateTime) || canal.LastActivityAt.Year == 2000)
             return "Sin actividad registrada";
 
-        // Calculamos la diferencia (forzamos a UniversalTime por las dudas para comparar bien con UtcNow)
         var diferencia = DateTime.UtcNow - canal.LastActivityAt.ToUniversalTime();
 
-        // Si pasaron más de 365 días (1 año)
         if (diferencia.TotalDays > 365)
         {
             return "Sin actividad registrada";
         }
 
-        // Si tiene actividad reciente, lo mostramos normal
         return $"Última Actividad: {canal.LastActivityAt.ToLocalTime().ToString("dd/MM/yy - HH:mm")} hs";
     }
 
-    // Formatear Sincro
     private string FormatearSincro(string lastSynced)
     {
         if (DateTimeOffset.TryParse(lastSynced, null, System.Globalization.DateTimeStyles.AssumeUniversal, out var fecha))
@@ -426,19 +400,16 @@
         return "---";
     }
 
-    // --- MÉTODO PARA SALTEAR LA CACHÉ ---
     private string ObtenerImagenFresca(string url, string lastActivityAt)
     {
         if (string.IsNullOrEmpty(url)) return url;
 
-        // Si por algún motivo no hay fecha, usamos un fallback seguro
-        string cacheBuster = string.IsNullOrEmpty(lastActivityAt) 
-            ? DateTime.UtcNow.Ticks.ToString() 
+        string cacheBuster = string.IsNullOrEmpty(lastActivityAt)
+            ? DateTime.UtcNow.Ticks.ToString()
             : Uri.EscapeDataString(lastActivityAt);
 
-        // Nos fijamos si la URL de YouTube ya tiene un "?" (para sumarle un "&") o si va el "?" directo
         string conector = url.Contains("?") ? "&" : "?";
-        
+
         return $"{url}{conector}act={cacheBuster}";
     }
 }
