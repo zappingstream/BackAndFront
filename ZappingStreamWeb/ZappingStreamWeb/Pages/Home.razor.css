@@ -343,6 +343,41 @@ html, body {
         border-radius: 5px;
     }
 
+/* NUEVAS CLASES PARA AGRUPAR EL TÍTULO Y LAS CARDS */
+.status-group {
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Espacio entre el texto ONDEMAND y las tarjetas abajo */
+}
+
+.cards-container {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 20px; /* Separación horizontal entre las tarjetas */
+}
+
+.videostatus {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    color: inherit;
+    padding-right: 20px; /* Para que la línea termine antes de chocar con el siguiente grupo */
+}
+
+.videostatusspan {
+    font-weight: bold;
+    letter-spacing: 1px;
+    color: #38B6FF;
+}
+
+.videostatusend {
+    flex-grow: 1;
+    height: 1px;
+    background-color: currentColor;
+    margin-left: 15px;
+    opacity: 0.3;
+}
+
 .title-group {
     display: flex;
     align-items: center;
@@ -628,29 +663,6 @@ html, body {
     font-size: 1.2rem;
     text-align: center;
 }
-
-.videostatus {
-    flex-basis: 100%;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    margin: 25px 10px;
-    color: inherit;
-}
-
-.videostatusspan {
-    font-weight: bold;
-    letter-spacing: 1px;
-    color: #38B6FF;
-}
-
-.videostatusend {
-   flex-grow: 1;
-   height: 1px;
-   background-color: currentColor;
-   margin-left: 15px;
-   opacity: 0.3;
- }
 
 .spinner {
     border: 4px solid rgba(255, 255, 255, 0.1);

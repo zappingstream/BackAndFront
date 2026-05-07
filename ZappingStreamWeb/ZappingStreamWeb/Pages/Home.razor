@@ -73,98 +73,160 @@
         {
             if (categoryChannels.Any())
             {
-                bool separatorShown = false;
+                var canalesEnVivo = categoryChannels.Where(c => c.ChannelLive).ToList();
+                var canalesOnDemand = categoryChannels.Where(c => !c.ChannelLive).ToList();
+
                 <h2 class="category-title">@title</h2>
+
                 <div class="channel-row">
-                    @if (categoryChannels.Where(c => c.ChannelLive).Count() > 0)
+
+                    @* --- GRUPO AHORA --- *@
+                    @if (canalesEnVivo.Any())
                     {
-                        <div class="videostatus">
-                            <span class="videostatusspan">AHORA</span>
-                            <div class="videostatusend"></div>
-                        </div>                        
-                    }
-                    @foreach (var channel in categoryChannels)
-                    {
-                        if (!channel.ChannelLive && !separatorShown)
-                        {
+                        <div class="status-group">
                             <div class="videostatus">
-                                <span class="videostatusspan">ONDEMAND</span>
+                                <span class="videostatusspan">AHORA</span>
                                 <div class="videostatusend"></div>
                             </div>
-                            separatorShown = true;
-                        }
 
-                        <div class="card-wrapper">
-                            <div class="channel-card @(IsExpanded(channel.ChannelName) ? "expanded-card" : null)"
-                                 tabindex="0"
-                                 @onclick="() => AbrirCanal(channel)">
-
-                                <div class="card-header">
-                                    <div class="title-group">
-                                        @if (channel.ChannelLive && !string.IsNullOrEmpty(channel.ChannelImgUrl))
-                                        {
-                                            <img src="@channel.ChannelImgUrl" alt="Logo" class="header-mini-logo" loading="lazy" />
-                                        }
-                                        <h3 class="channel-title">@channel.ChannelName</h3>
-                                    </div>
-                                    <button class="toggle-info-btn" @onclick:stopPropagation @onclick="() => ToggleInfo(channel.ChannelName)">
-                                        @(IsExpanded(channel.ChannelName) ? "Ocultar" : "Info")
-                                    </button>
-                                </div>
-
-                                <div class="image-container">
-                                    @if (channel.ChannelLive && !string.IsNullOrEmpty(channel.ChannelImgLiveUrl))
-                                    {
-                                        <img src="@ObtenerImagenFresca(channel.ChannelImgLiveUrl, channel.LastActivityAt.ToLocalTime().ToString("dd/MM/yy - HH:mm"))" alt="@channel.ChannelName" class="channel-logo" loading="lazy" referrerpolicy="no-referrer" />
-                                    }
-                                    else if (!string.IsNullOrEmpty(channel.ChannelImgUrl))
-                                    {
-                                        <img src="@channel.ChannelImgUrl" alt="@channel.ChannelName" class="channel-logo" loading="lazy" referrerpolicy="no-referrer" />
-                                    }
-                                    else
-                                    {
-                                        <div class="fallback-logo">
-                                            <span>@(string.IsNullOrEmpty(channel.ChannelName) ? "?" : channel.ChannelName.Substring(0, 1).ToUpper())</span>
-                                        </div>
-                                    }
-
-                                    @if (channel.ChannelLive)
-                                    {
-                                        if (channel.IsPremiere)
-                                        {
-                                            <div class="badge-estreno">
-                                                <span class="punto-azul"></span> ESTRENO
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <div class="badge-vivo">
-                                                <span class="punto-rojo"></span> EN VIVO
-                                            </div>
-                                        }
-                                    }
-                                </div>
-
-                                <div class="last-activity-container">
-                                    <span class="last-activity-text">
-                                        @ObtenerTextoActividad(channel)
-                                    </span>
-                                </div>
-
-                                @if (IsExpanded(channel.ChannelName))
+                            <div class="cards-container">
+                                @foreach (var channel in canalesEnVivo)
                                 {
-                                    <div class="channel-description" @onclick:stopPropagation>
-                                        <h4 class="full-title-info">@channel.ChannelName</h4>
-                                        @if (!string.IsNullOrEmpty(channel.ChannelCity))
-                                        {
-                                            <p class="city-tag">📍 @channel.ChannelCity</p>
-                                        }
-                                        <p>@(string.IsNullOrEmpty(channel.ChannelDescription) ? "Sin descripción disponible." : channel.ChannelDescription)</p>
+                                    <div class="card-wrapper">
+                                        <div class="channel-card @(IsExpanded(channel.ChannelName) ? "expanded-card" : null)"
+                                             tabindex="0"
+                                             @onclick="() => AbrirCanal(channel)">
+
+                                            <div class="card-header">
+                                                <div class="title-group">
+                                                    @if (channel.ChannelLive && !string.IsNullOrEmpty(channel.ChannelImgUrl))
+                                                    {
+                                                        <img src="@channel.ChannelImgUrl" alt="Logo" class="header-mini-logo" loading="lazy" />
+                                                    }
+                                                    <h3 class="channel-title">@channel.ChannelName</h3>
+                                                </div>
+                                                <button class="toggle-info-btn" @onclick:stopPropagation @onclick="() => ToggleInfo(channel.ChannelName)">
+                                                    @(IsExpanded(channel.ChannelName) ? "Ocultar" : "Info")
+                                                </button>
+                                            </div>
+
+                                            <div class="image-container">
+                                                @if (channel.ChannelLive && !string.IsNullOrEmpty(channel.ChannelImgLiveUrl))
+                                                {
+                                                    <img src="@ObtenerImagenFresca(channel.ChannelImgLiveUrl, channel.LastActivityAt.ToLocalTime().ToString("dd/MM/yy - HH:mm"))" alt="@channel.ChannelName" class="channel-logo" loading="lazy" referrerpolicy="no-referrer" />
+                                                }
+                                                else if (!string.IsNullOrEmpty(channel.ChannelImgUrl))
+                                                {
+                                                    <img src="@channel.ChannelImgUrl" alt="@channel.ChannelName" class="channel-logo" loading="lazy" referrerpolicy="no-referrer" />
+                                                }
+                                                else
+                                                {
+                                                    <div class="fallback-logo">
+                                                        <span>@(string.IsNullOrEmpty(channel.ChannelName) ? "?" : channel.ChannelName.Substring(0, 1).ToUpper())</span>
+                                                    </div>
+                                                }
+
+                                                @if (channel.IsPremiere)
+                                                {
+                                                    <div class="badge-estreno">
+                                                        <span class="punto-azul"></span> ESTRENO
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="badge-vivo">
+                                                        <span class="punto-rojo"></span> EN VIVO
+                                                    </div>
+                                                }
+                                            </div>
+
+                                            <div class="last-activity-container">
+                                                <span class="last-activity-text">
+                                                    @ObtenerTextoActividad(channel)
+                                                </span>
+                                            </div>
+
+                                            @if (IsExpanded(channel.ChannelName))
+                                            {
+                                                <div class="channel-description" @onclick:stopPropagation>
+                                                    <h4 class="full-title-info">@channel.ChannelName</h4>
+                                                    @if (!string.IsNullOrEmpty(channel.ChannelCity))
+                                                    {
+                                                        <p class="city-tag">📍 @channel.ChannelCity</p>
+                                                    }
+                                                    <p>@(string.IsNullOrEmpty(channel.ChannelDescription) ? "Sin descripción disponible." : channel.ChannelDescription)</p>
+                                                </div>
+                                            }
+                                        </div>
                                     </div>
                                 }
                             </div>
                         </div>
                     }
+
+                    @* --- GRUPO ONDEMAND --- *@
+                    @if (canalesOnDemand.Any())
+                    {
+                        <div class="status-group">
+                            <div class="videostatus">
+                                <span class="videostatusspan">ONDEMAND</span>
+                                <div class="videostatusend"></div>
+                            </div>
+
+                            <div class="cards-container">
+                                @foreach (var channel in canalesOnDemand)
+                                {
+                                    <div class="card-wrapper">
+                                        <div class="channel-card @(IsExpanded(channel.ChannelName) ? "expanded-card" : null)"
+                                             tabindex="0"
+                                             @onclick="() => AbrirCanal(channel)">
+
+                                            <div class="card-header">
+                                                <div class="title-group">
+                                                    <h3 class="channel-title">@channel.ChannelName</h3>
+                                                </div>
+                                                <button class="toggle-info-btn" @onclick:stopPropagation @onclick="() => ToggleInfo(channel.ChannelName)">
+                                                    @(IsExpanded(channel.ChannelName) ? "Ocultar" : "Info")
+                                                </button>
+                                            </div>
+
+                                            <div class="image-container">
+                                                @if (!string.IsNullOrEmpty(channel.ChannelImgUrl))
+                                                {
+                                                    <img src="@channel.ChannelImgUrl" alt="@channel.ChannelName" class="channel-logo" loading="lazy" referrerpolicy="no-referrer" />
+                                                }
+                                                else
+                                                {
+                                                    <div class="fallback-logo">
+                                                        <span>@(string.IsNullOrEmpty(channel.ChannelName) ? "?" : channel.ChannelName.Substring(0, 1).ToUpper())</span>
+                                                    </div>
+                                                }
+                                            </div>
+
+                                            <div class="last-activity-container">
+                                                <span class="last-activity-text">
+                                                    @ObtenerTextoActividad(channel)
+                                                </span>
+                                            </div>
+
+                                            @if (IsExpanded(channel.ChannelName))
+                                            {
+                                                <div class="channel-description" @onclick:stopPropagation>
+                                                    <h4 class="full-title-info">@channel.ChannelName</h4>
+                                                    @if (!string.IsNullOrEmpty(channel.ChannelCity))
+                                                    {
+                                                        <p class="city-tag">📍 @channel.ChannelCity</p>
+                                                    }
+                                                    <p>@(string.IsNullOrEmpty(channel.ChannelDescription) ? "Sin descripción disponible." : channel.ChannelDescription)</p>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
                 </div>
             }
         }
