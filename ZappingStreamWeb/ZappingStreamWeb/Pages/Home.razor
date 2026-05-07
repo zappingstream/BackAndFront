@@ -27,9 +27,18 @@
                    placeholder="Buscar por canal o ciudad..."
                    @bind="SearchText"
                    @bind:event="oninput" />
+        
             <button class="refresh-btn" title="Actualizar canales" @onclick="RecargarCanales" disabled="@_isLoading">
                 ↻
             </button>
+        </div>
+        <div align="center">
+            <span class="videostatusspan">Ordenar Por</span>
+            
+            <select class="sort-select" @bind="SortBy">
+                <option value="actividad">Última Actividad</option>
+                <option value="nombre">Nombre del Canal</option>
+            </select>
         </div>
 
     </div>
@@ -292,6 +301,13 @@
         set { _searchText = value; }
     }
 
+    private string _sortBy = "actividad";
+    private string SortBy
+    {
+        get => _sortBy;
+        set { _sortBy = value; }
+    }
+
     private static string RemoveDiacritics(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return text;
@@ -332,25 +348,25 @@
         }
     }
 
-    private IEnumerable<FirebaseChannel> Streams => FilteredChannels
-            .Where(c => c.ChannelType != null && c.ChannelType.Contains("stream", StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(c => c.ChannelLive)
-            .ThenByDescending(c => c.LastActivityAt);
+    private IEnumerable<FirebaseChannel> SortChannels(IEnumerable<FirebaseChannel> source)
+    {
+        if (_sortBy == "nombre")
+            return source.OrderBy(c => c.ChannelName);
 
-    private IEnumerable<FirebaseChannel> PersonalStreams => FilteredChannels
-        .Where(c => c.ChannelType != null && c.ChannelType.Contains("personal", StringComparison.OrdinalIgnoreCase))
-        .OrderByDescending(c => c.ChannelLive)
-        .ThenByDescending(c => c.LastActivityAt);
+        return source.OrderByDescending(c => c.LastActivityAt);
+    }
 
-    private IEnumerable<FirebaseChannel> Televisions => FilteredChannels
-        .Where(c => c.ChannelType != null && c.ChannelType.Contains("television", StringComparison.OrdinalIgnoreCase))
-        .OrderByDescending(c => c.ChannelLive)
-        .ThenByDescending(c => c.LastActivityAt);
+    private IEnumerable<FirebaseChannel> Streams => SortChannels(FilteredChannels
+            .Where(c => c.ChannelType != null && c.ChannelType.Contains("stream", StringComparison.OrdinalIgnoreCase)));
 
-    private IEnumerable<FirebaseChannel> Radios => FilteredChannels
-        .Where(c => c.ChannelType != null && c.ChannelType.Contains("radio", StringComparison.OrdinalIgnoreCase))
-        .OrderByDescending(c => c.ChannelLive)
-        .ThenByDescending(c => c.LastActivityAt);
+    private IEnumerable<FirebaseChannel> PersonalStreams => SortChannels(FilteredChannels
+        .Where(c => c.ChannelType != null && c.ChannelType.Contains("personal", StringComparison.OrdinalIgnoreCase)));
+
+    private IEnumerable<FirebaseChannel> Televisions => SortChannels(FilteredChannels
+        .Where(c => c.ChannelType != null && c.ChannelType.Contains("television", StringComparison.OrdinalIgnoreCase)));
+
+    private IEnumerable<FirebaseChannel> Radios => SortChannels(FilteredChannels
+        .Where(c => c.ChannelType != null && c.ChannelType.Contains("radio", StringComparison.OrdinalIgnoreCase)));
 
     private HashSet<string> _expandedChannels = new();
 

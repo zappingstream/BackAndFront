@@ -35,8 +35,6 @@
     justify-content: center;
     align-items: center;
     transition: all 0.3s ease;
-    margin-top: 8px;
-    margin-left: 10px;
 }
 
     .refresh-btn:hover:not(:disabled) {
@@ -273,14 +271,18 @@ html, body {
 }
 
 .search-container {
-    max-width: 600px;
+    max-width: 700px;
     margin: 0 auto 30px auto;
     display: flex;
     justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .search-input {
-    width: 100%;
+    flex-grow: 1;
+    min-width: 250px;
     padding: 15px 20px;
     border-radius: 30px;
     border: 2px solid #333;
@@ -294,6 +296,22 @@ html, body {
     .search-input:focus {
         border-color: #38B6FF;
         box-shadow: 0 0 10px rgba(206, 241, 150, 0.3);
+    }
+
+.sort-select {
+    padding: 12px 15px;
+    border-radius: 30px;
+    border: 2px solid #333;
+    background-color: #111;
+    color: #fff;
+    font-size: 1rem;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+    .sort-select:focus {
+        border-color: #38B6FF;
     }
 
 .category-title {
@@ -343,17 +361,16 @@ html, body {
         border-radius: 5px;
     }
 
-/* NUEVAS CLASES PARA AGRUPAR EL TÍTULO Y LAS CARDS */
 .status-group {
     display: flex;
     flex-direction: column;
-    gap: 15px; /* Espacio entre el texto ONDEMAND y las tarjetas abajo */
+    gap: 15px;
 }
 
 .cards-container {
     display: flex;
     flex-wrap: nowrap;
-    gap: 20px; /* Separación horizontal entre las tarjetas */
+    gap: 20px;
 }
 
 .videostatus {
@@ -361,20 +378,24 @@ html, body {
     display: flex;
     align-items: center;
     color: inherit;
-    padding-right: 20px; /* Para que la línea termine antes de chocar con el siguiente grupo */
+    padding-right: 20px;
 }
 
 .videostatusspan {
     font-weight: bold;
     letter-spacing: 1px;
     color: #38B6FF;
+    position: sticky;
+    left: 0;
+    background-color: #000;
+    padding-right: 15px;
+    z-index: 10;
 }
 
 .videostatusend {
     flex-grow: 1;
     height: 1px;
     background-color: currentColor;
-    margin-left: 15px;
     opacity: 0.3;
 }
 
