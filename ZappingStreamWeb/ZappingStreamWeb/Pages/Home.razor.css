@@ -419,7 +419,6 @@ html, body {
 
 .card-wrapper {
     flex: 0 0 auto;
-    width: 320px;
     min-height: 310px;
     position: relative;
 }
@@ -433,7 +432,7 @@ html, body {
     flex-direction: column;
     gap: 15px;
     transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, background-color 0.2s ease-out, border-color 0.2s ease-out;
-    width: 320px;
+    width: 100%;
     position: relative;
     z-index: 1;
 }
@@ -525,8 +524,17 @@ html, body {
         color: #000;
     }
 
+
+/* --- IMAGENES --- */
+.videos-horizontal-list {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 15px;
+}
+
 .image-container {
-    width: 100%;
+    width: 280px; /* Candado base para grilla normal */
     aspect-ratio: 16 / 10;
     display: flex;
     justify-content: center;
@@ -536,6 +544,14 @@ html, body {
     overflow: hidden;
     flex-shrink: 0;
     position: relative;
+}
+
+.expanded-card .image-container {
+    width: 100% !important;
+}
+
+.secondary-video {
+   /* width: 220px !important;*/
 }
 
 .badge-vivo {

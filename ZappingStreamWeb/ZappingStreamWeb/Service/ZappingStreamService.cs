@@ -3,33 +3,48 @@ using Microsoft.JSInterop;
 
 namespace ZappingStreamWebServer.Service
 {
-    // --- MODELO DE DATOS (Parcial) ---
     public class FirebaseChannel
     {
-        // El nombre del canal
         public string ChannelName { get; set; }
-        // La descripción del canal
         public string ChannelDescription { get; set; }
-        // La ciudad donde transmite el canal
         public string ChannelCity { get; set; }
-        // El tipo de canal: Stream, Personal, Television, Radio
         public string ChannelType { get; set; }
-        // La url live del canal
         public string ChannelLiveUrl { get; set; }
-        // El logo del canal
         public string ChannelImgUrl { get; set; }
-        // La imagen del video live del canal
-        public string ChannelImgLiveUrl { get; set; }
-        // booleano que indica si un canal está en vivo o no
-        public bool ChannelLive { get; set; }
-        // El videoId del vivo (Sirve unicamente para los estrenos, el link para los vivos se hace con ChannelId/live
-        public string LiveVideoId { get; set; }
-        // La última actividad del canal
         public DateTime LastActivityAt { get; set; }
-        // Indica si es un estreno
-        public bool IsPremiere { get; set; } 
+
+        // --- PROPIEDADES LEGACY (Mantenidas para compatibilidad temporal con el Front) ---
+        public bool ChannelLive { get; set; }
+        public string ChannelImgLiveUrl { get; set; }
+        public string LiveVideoId { get; set; }
+        public bool IsPremiere { get; set; }
+
+        // --- NUEVAS COLECCIONES MULTI-ESTADO ---
+        public Dictionary<string, UpcomingVideo> Upcoming { get; set; }
+        public Dictionary<string, ActiveVideo> Actives { get; set; }
     }
 
+    public class UpcomingVideo
+    {
+        public string VideoId { get; set; }
+        public string Title { get; set; }
+        public string ScheduledStartTime { get; set; }
+        public string ThumbnailUrl { get; set; }
+        public string AddedAt { get; set; }
+        public bool Live { get; set; }
+        public bool IsPremiere { get; set; }
+    }
+
+    public class ActiveVideo
+    {
+        public string VideoId { get; set; }
+        public string Title { get; set; }
+        public string ScheduledStartTime { get; set; }
+        public string ThumbnailUrl { get; set; }
+        public string AddedAt { get; set; }
+        public bool Live { get; set; }
+        public bool IsPremiere { get; set; }
+    }
     // La última fecha en que la base fué sincronizada
     public class FirebaseDBMeta
     {
