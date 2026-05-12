@@ -181,9 +181,16 @@ namespace ZappingGhostBusterConsole
                             if (status == "live")
                             {
                                 Console.WriteLine($"- {canal.Key}: ¡El programado {upc.Key} está EN VIVO! Movido a Actives.");
+
                                 bool tieneDuracion = ytVideo?.ContentDetails != null &&
                                                      ytVideo.ContentDetails.Duration != "P0D" &&
                                                      ytVideo.ContentDetails.Duration != "PT0D";
+
+                                string fechaInicioYouTube =
+                                    ytVideo?.LiveStreamingDetails?.ActualStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ??
+                                    ytVideo?.LiveStreamingDetails?.ScheduledStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ??
+                                    ytVideo?.Snippet?.PublishedAtDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ??
+                                    DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
                                 var nuevoActivo = new ActiveVideo
                                 {
@@ -191,8 +198,8 @@ namespace ZappingGhostBusterConsole
                                     Title = upc.Value.Title,
                                     ScheduledStartTime = upc.Value.ScheduledStartTime,
                                     ThumbnailUrl = upc.Value.ThumbnailUrl,
-                                    AddedAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                                    IsPremiere = tieneDuracion // Se setea en base a la evaluación del estreno
+                                    AddedAt = fechaInicioYouTube, 
+                                    IsPremiere = tieneDuracion
                                 };
 
                                 await canalRef.Child("Actives").Child(upc.Key).PutAsync(nuevoActivo);
