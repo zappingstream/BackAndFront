@@ -1,0 +1,126 @@
+import type { Channel } from '../models/Channel';
+import { formatActivityDate, getFreshImage } from '../index';
+import { VideoCard } from './VideoCard';
+import './ChannelCard.css';
+
+interface ChannelCardProps {
+    channel: Channel;
+    isExpanded: boolean;
+    isLiveGroup: boolean;
+    toggleInfo: (channelName: string) => void;
+    abrirCanal: (channel: Channel) => void;
+    abrirCanalOnDemand: (channel: Channel) => void;
+    navigateYouTube: (url: string) => void;
+}
+
+export const ChannelCard = ({
+    channel,
+    isExpanded,
+    isLiveGroup,
+    toggleInfo,
+    abrirCanal,
+    abrirCanalOnDemand,
+    navigateYouTube,
+}: ChannelCardProps) => {
+    // Filtrar los videos activos secundarios (si estamos en el grupo en vivo)
+    const restoActivos = isLiveGroup && channel.Actives
+        ? Object.values(channel.Actives).filter(v => v.VideoId !== channel.LiveVideoId)
+        : [];
+
+    // Ajustar el ancho según si está expandido y cuántos videos secundarios hay
+    const cardWidthPx = isExpanded ? 0 : (isLiveGroup ? 320 + (restoActivos.length * 295) : 320);
+    const cardStyle = isExpanded ? {} : { width: `${cardWidthPx}px` };
+
+    const primaryImageUrl = isLiveGroup && channel.ChannelLive && channel.ChannelImgLiveUrl
+        ? getFreshImage(channel.ChannelImgLiveUrl, channel.LastActivityAt)
+        : channel.ChannelImgUrl;
+
+    return (
+        <div className="card-wrapper" style={cardStyle}>
+            <div 
+                className={`channel-card ${isExpanded ? "expanded-card" : ""}`} 
+                tabIndex={0}
+                onClick={!isLiveGroup && !isExpanded ? () => abrirCanalOnDemand(channel) : undefined}
+            >
+                <div 
+                    className="card-header" 
+                    onClick={isLiveGroup ? () => abrirCanal(channel) : undefined} 
+                    style={{ cursor: isLiveGroup ? 'pointer' : 'default' }}
+                >
+                    <div className="title-group">
+                        {isLiveGroup && channel.ChannelLive && channel.ChannelImgUrl && (
+                            <img src={channel.ChannelImgUrl} alt="Logo" className="header-mini-logo" loading="lazy" />
+                        )}
+                        <h3 className="channel-title">{channel.ChannelName}</h3>
+                    </div>
+                    <button
+                        className="toggle-info-btn"
+                        onClick={(e) => { e.stopPropagation(); toggleInfo(channel.ChannelName); }}
+                    >
+                        {isExpanded ? "Ocultar" : "Info"}
+                    </button>
+                </div>
+
+                {isExpanded ? (
+                    <>
+                        <VideoCard 
+                            imageUrl={channel.ChannelImgUrl}
+                            altText={channel.ChannelName}
+                            fallbackText={channel.ChannelName}
+                            onClick={() => abrirCanalOnDemand(channel)}
+                        />
+                        <div className="channel-description" onClick={(e) => e.stopPropagation()}>
+                            <h4 className="full-title-info">{channel.ChannelName}</h4>
+                            {channel.ChannelCity && <p className="city-tag">📍 {channel.ChannelCity}</p>}
+                            <p>{channel.ChannelDescription || "Sin descripción disponible."}</p>
+                        </div>
+                        <button className="submit-btn" style={{ marginTop: '15px' }} onClick={() => abrirCanalOnDemand(channel)}>
+                            Ir al Canal (On-Demand)
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        {isLiveGroup ? (
+                            <div className="videos-horizontal-list">
+                                <VideoCard 
+                                    className="primary-video"
+                                    imageUrl={primaryImageUrl}
+                                    altText={channel.ChannelName}
+                                    fallbackText={channel.ChannelName}
+                                    isLive={channel.ChannelLive}
+                                    isPremiere={channel.IsPremiere}
+                                    onClick={() => abrirCanal(channel)}
+                                />
+                                {restoActivos.map((activo, aIdx) => (
+                                    <VideoCard
+                                        key={aIdx}
+                                        className="secondary-video"
+                                        imageUrl={activo.ThumbnailUrl ? getFreshImage(activo.ThumbnailUrl, channel.LastActivityAt) : undefined}
+                                        altText={activo.Title}
+                                        fallbackText={channel.ChannelName}
+                                        isLive={true}
+                                        isPremiere={activo.IsPremiere}
+                                        onClick={(e) => { e.stopPropagation(); navigateYouTube(`https://www.youtube.com/watch?v=${activo.VideoId}`); }}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <VideoCard 
+                                imageUrl={channel.ChannelImgUrl}
+                                altText={channel.ChannelName}
+                                fallbackText={channel.ChannelName}
+                            />
+                        )}
+                        <div 
+                            className="last-activity-container" 
+                            onClick={isLiveGroup ? () => abrirCanal(channel) : undefined} 
+                            style={{ cursor: isLiveGroup ? 'pointer' : 'default' }}
+                        >
+                            <span className="last-activity-text">{formatActivityDate(channel.LastActivityAt)}</span>
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+};

@@ -1,0 +1,165 @@
+.card-wrapper {
+    flex: 0 0 auto;
+    min-height: 310px;
+    position: relative;
+}
+
+.channel-card {
+    background-color: var(--bg-dark);
+    border: 2px solid var(--accent-blue);
+    border-radius: 15px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, background-color 0.2s ease-out, border-color 0.2s ease-out;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+}
+
+.channel-card:focus:not(.expanded-card), .channel-card:hover:not(.expanded-card) {
+    background-color: #555;
+    border-color: var(--text-white);
+    transform: scale(1.02);
+    outline: none;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+}
+
+.expanded-card {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 90vw;
+    max-width: 450px;
+    max-height: 85vh;
+    overflow-y: auto;
+    z-index: 9999;
+    background-color: #1a1a1a;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 20px rgba(206, 241, 150, 0.4);
+    transform: translate(-50%, -50%);
+    border-color: var(--text-white);
+    cursor: default;
+}
+
+.expanded-card::-webkit-scrollbar {
+    width: 8px;
+}
+
+.expanded-card::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.expanded-card::-webkit-scrollbar-thumb {
+    background-color: var(--accent-blue);
+    border-radius: 4px;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    overflow: hidden;
+    flex-grow: 1;
+}
+
+.header-mini-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid var(--accent-blue);
+    box-shadow: 0 0 5px rgba(56, 182, 255, 0.5); /* Las sombras con alpha es mejor dejarlas o usar variables rgb independientes a futuro */
+}
+
+.channel-title {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: var(--text-white);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-grow: 1;
+}
+
+.expanded-card .channel-title {
+    white-space: normal;
+    overflow: visible;
+}
+
+.toggle-info-btn {
+    background-color: transparent;
+    color: var(--accent-blue);
+    border: 1px solid var(--accent-blue);
+    padding: 5px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.toggle-info-btn:hover {
+    background-color: var(--accent-blue);
+    color: var(--bg-black);
+}
+
+.channel-description {
+    background-color: var(--bg-panel);
+    padding: 15px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    color: #ddd;
+    border-left: 3px solid var(--accent-blue);
+    animation: slideDown 0.3s ease-out forwards;
+    cursor: default;
+    max-height: 25vh;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
+
+.city-tag {
+    font-weight: bold;
+    color: var(--accent-blue);
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.last-activity-container {
+    margin-top: 5px;
+    text-align: center;
+}
+
+.last-activity-text {
+    font-size: 0.8rem;
+    color: #aaa;
+    background-color: var(--bg-panel);
+    padding: 4px 10px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid #333;
+}
+
+.videos-horizontal-list {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 15px;
+}

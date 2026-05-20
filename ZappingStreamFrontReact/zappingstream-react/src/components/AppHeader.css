@@ -1,0 +1,123 @@
+.sticky-top-section {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: var(--bg-black);
+    padding-top: 20px;
+    margin-left: -20px;
+    margin-right: -20px;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+.info-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background-color: transparent;
+    color: var(--accent-blue);
+    border: 2px solid var(--accent-blue);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 101;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.info-btn:hover {
+    background-color: var(--accent-blue);
+    color: var(--bg-black);
+    box-shadow: 0 0 10px var(--accent-blue-hover);
+    transform: scale(1.1);
+}
+
+.zapping-header {
+    display: flex;
+    justify-content: center;
+    position: relative;
+}
+
+.app-logo {
+    height: 25vh;
+    max-height: 500px;
+    width: 50vw;
+    max-width: 500px;
+}
+
+.search-container {
+    max-width: 700px;
+    margin: 0 auto 30px auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.search-input {
+    flex-grow: 1;
+    min-width: 250px;
+    padding: 15px 20px;
+    border-radius: 30px;
+    border: 2px solid #333;
+    background-color: var(--bg-dark);
+    color: var(--text-white);
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.search-input:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 10px rgba(206, 241, 150, 0.3);
+}
+
+.sort-select {
+    padding: 12px 15px;
+    border-radius: 30px;
+    border: 2px solid #333;
+    background-color: var(--bg-dark);
+    color: var(--text-white);
+    font-size: 1rem;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.sort-select:focus {
+    border-color: var(--accent-blue);
+}
+
+.refresh-btn {
+    background-color: var(--bg-panel);
+    color: var(--accent-blue);
+    border: 1px solid var(--accent-blue);
+    border-radius: 40px;
+    width: 45px;
+    height: 45px;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.refresh-btn:hover:not(:disabled) {
+    background-color: var(--accent-blue);
+    color: var(--bg-black);
+}
+
+.refresh-btn:disabled {
+    border-color: #555;
+    color: #555;
+    cursor: not-allowed;
+    background-color: var(--bg-dark);
+}

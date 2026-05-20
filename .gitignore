@@ -1,22 +1,40 @@
-## Ignorar carpetas de compilación de .NET
+## =======================================================
+## ENTORNO .NET / C#
+## =======================================================
 [Bb]in/
 [Oo]bj/
-
-## Ignorar archivos de usuario y configuraciones locales de Visual Studio / Rider
 .vs/
 .vscode/
 *.user
 *.userosscache
 *.sln.docstates
 *.suo
-
-## Ignorar archivos de logs
-*.log
-
-## Ignorar herramientas de línea de comandos locales
 .config/dotnet-tools.json
 
-## Ignorar archivos temporales del sistema operativo
+## =======================================================
+## ENTORNO NODE.JS / REACT / VITE
+## =======================================================
+# Dependencias
+node_modules/
+
+# Carpetas de compilación de Vite
+dist/
+dist-ssr/
+
+# Logs de NPM / Yarn / PNPM
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Caché y configuraciones locales
+.eslintcache
+*.tsbuildinfo
+
+## =======================================================
+## ARCHIVOS DEL SISTEMA OPERATIVO Y LOGS GENERALES
+## =======================================================
+*.log
 .DS_Store
 Thumbs.db
 
@@ -27,3 +45,10 @@ Thumbs.db
 # Ignora las credenciales locales de la API de YouTube y Firebase
 appsettings.Development.json
 appsettings.Local.json
+
+# Ignora las variables de entorno locales de React (.env)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

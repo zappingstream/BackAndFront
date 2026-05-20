@@ -1,0 +1,57 @@
+import './AppHeader.css';
+import logo from '../assets/logo.png';
+
+interface AppHeaderProps {
+    searchText: string;
+    onSearchChange: (text: string) => void;
+    sortBy: string;
+    onSortChange: (sort: string) => void;
+    onRefresh: () => void;
+    isRefreshing: boolean;
+    onShowInfo: () => void;
+}
+
+export const AppHeader = ({
+    searchText,
+    onSearchChange,
+    sortBy,
+    onSortChange,
+    onRefresh,
+    isRefreshing,
+    onShowInfo,
+}: AppHeaderProps) => {
+    return (
+        <div className="sticky-top-section">
+            <button className="info-btn" title="¿Cómo funciona?" onClick={onShowInfo}>?</button>
+            <header className="zapping-header">
+                <img src={logo} alt="Zapping Stream" className="app-logo" />
+            </header>
+
+            <div className="search-container">
+                <input
+                    type="text"
+                    className="search-input"
+                    placeholder="Buscar por canal o ciudad..."
+                    value={searchText}
+                    onChange={(e) => onSearchChange(e.target.value)}
+                />
+                <button
+                    className="refresh-btn"
+                    title="Actualizar canales"
+                    onClick={onRefresh}
+                    disabled={isRefreshing}
+                >
+                    ↻
+                </button>
+            </div>
+
+            <div style={{ textAlign: 'center' }}>
+                <span className="videostatusspan" style={{ position: 'static', background: 'transparent', padding: 0, zIndex: 'auto' }}>Ordenar Por </span>
+                <select className="sort-select" value={sortBy} onChange={(e) => onSortChange(e.target.value)}>
+                    <option value="actividad">Última Actividad</option>
+                    <option value="nombre">Nombre del Canal</option>
+                </select>
+            </div>
+        </div>
+    );
+};
