@@ -11,7 +11,7 @@ import './global.css';
 import './App.css';
 
 export default function App() {
-  const { channels, isLoading: isFetching } = useChannels();
+  const { channels, isLoading: isFetching, refetch } = useChannels();
   const [isLoading, setIsLoading] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -77,9 +77,13 @@ export default function App() {
     });
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsLoading(true);
-    setTimeout(() => setIsLoading(false), 500);
+    try {
+      if (refetch) await refetch();
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const showAppContent = !isFetching && !isLoading && channels.length > 0;

@@ -18,5 +18,5 @@ export const formatActivityDate = (isoString: string) => {
     const diffDays = (Date.now() - date.getTime()) / (1000 * 60 * 60 * 24);
     if (diffDays > 365) return "Sin actividad registrada";
 
-    return `Última Actividad: ${date.toLocaleDateString('es-AR')} - ${date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs`;
+    return `Última Actividad: ${date.toLocaleDateString('es-AR')} - ${date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false})}`;
 };
