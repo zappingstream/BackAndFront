@@ -46,6 +46,7 @@ namespace ZappingStreamingDBService
         public string ChannelType { get; set; }
         public string ChannelLiveUrl { get; set; }
         public string ChannelImgUrl { get; set; }
+        public string ChannelBannerUrl { get; set; }
         public string LastActivityAt { get; set; }
 
         // --- PROPIEDADES LEGACY (Mantenidas para compatibilidad temporal con el Front) ---
@@ -124,7 +125,7 @@ namespace ZappingStreamingDBService
                 _logger.LogInformation("=== INICIANDO TAREAS DE MANTENIMIENTO ===");
 
                 await ProcesarYActualizarCanalesAsync(stoppingToken);
-                await RenovarSuscripcionesWebhooksAsync(stoppingToken);
+             //   await RenovarSuscripcionesWebhooksAsync(stoppingToken);
 
                 _logger.LogInformation("=== TODAS LAS TAREAS COMPLETADAS CON ÉXITO ===");
             }
@@ -169,7 +170,7 @@ namespace ZappingStreamingDBService
 
             foreach (var lote in lotesDeCanales)
             {
-                var request = _youtubeService.Channels.List("snippet");
+                var request = _youtubeService.Channels.List("snippet,brandingSettings");
                 request.Id = string.Join(",", lote);
                 var ytResponse = await request.ExecuteAsync(cancellationToken);
 
@@ -226,12 +227,15 @@ namespace ZappingStreamingDBService
                                    ?? channelInfo.Snippet.Thumbnails.Medium?.Url
                                    ?? channelInfo.Snippet.Thumbnails.Default__?.Url ?? "";
 
+                    string bannerUrl = channelInfo.BrandingSettings?.Image?.BannerExternalUrl ?? "";
+
                     canalesParaFirebase[firebaseKey] = new FirebaseChannel
                     {
                         ChannelName = channelName,
                         ChannelLiveUrl = $"https://www.youtube.com/channel/{stream.ChannelId}/live",
                         ChannelImgUrl = imageUrl,
                         ChannelDescription = channelInfo.Snippet.Description,
+                        ChannelBannerUrl = bannerUrl,
                         ChannelCity = stream.City,
                         ChannelType = stream.Category,
 
