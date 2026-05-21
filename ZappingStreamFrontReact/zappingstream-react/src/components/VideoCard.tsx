@@ -9,13 +9,14 @@ interface VideoCardProps {
     isPremiere?: boolean;
     onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
     className?: string;
+    imageClassName?: string;
 }
 
-export const VideoCard = ({ imageUrl, altText, fallbackText, isLive, isPremiere, onClick, className = "" }: VideoCardProps) => {
+export const VideoCard = ({ imageUrl, altText, fallbackText, isLive, isPremiere, onClick, className = "", imageClassName = "channel-logo" }: VideoCardProps) => {
     return (
         <div className={`image-container ${className}`} onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }}>
             {imageUrl ? (
-                <img src={imageUrl} alt={altText || ""} className="channel-logo" loading="lazy" referrerPolicy="no-referrer" />
+                <img src={imageUrl} alt={altText || ""} className={imageClassName} loading="lazy" referrerPolicy="no-referrer" />
             ) : (
                 <div className="fallback-logo">
                     <span>{fallbackText ? fallbackText.substring(0, 1).toUpperCase() : "?"}</span>

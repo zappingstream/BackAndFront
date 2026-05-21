@@ -24,6 +24,7 @@ export interface Channel {
   ChannelCity: string;
   ChannelType: string;
   ChannelLiveUrl: string;
+  ChannelBannerUrl: string;
   ChannelImgUrl: string;
   LastActivityAt: string; 
 

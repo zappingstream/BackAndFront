@@ -35,6 +35,91 @@ export const ChannelCard = ({
         ? getFreshImage(channel.ChannelImgLiveUrl, channel.LastActivityAt)
         : channel.ChannelImgUrl;
 
+    const renderHeader = () => (
+        <div 
+            className="card-header" 
+            onClick={isLiveGroup ? () => abrirCanal(channel) : undefined} 
+            style={{ cursor: isLiveGroup ? 'pointer' : 'default' }}
+        >
+            <div className="title-group">
+                {channel.ChannelImgUrl && (isExpanded || (isLiveGroup && channel.ChannelLive)) && (
+                    <img src={channel.ChannelImgUrl} alt="Logo" className="header-mini-logo" loading="lazy" />
+                )}
+                <h3 className="channel-title">{channel.ChannelName}</h3>
+            </div>
+            <button
+                className="toggle-info-btn"
+                onClick={(e) => { e.stopPropagation(); toggleInfo(channel.ChannelName); }}
+            >
+                {isExpanded ? "Ocultar" : "Info"}
+            </button>
+        </div>
+    );
+
+    const renderExpandedBody = () => (
+        <>
+            <VideoCard 
+                imageUrl={channel.ChannelBannerUrl || channel.ChannelImgUrl}
+                altText={channel.ChannelName}
+                fallbackText={channel.ChannelName}
+                onClick={() => abrirCanalOnDemand(channel)}
+                imageClassName="channel-banner"
+            />
+            <div className="channel-description" onClick={(e) => e.stopPropagation()}>
+                <h4 className="full-title-info">{channel.ChannelName}</h4>
+                {channel.ChannelCity && <p className="city-tag">📍 {channel.ChannelCity}</p>}
+                <p>{channel.ChannelDescription || "Sin descripción disponible."}</p>
+            </div>
+            <button className="submit-btn" style={{ marginTop: '15px' }} onClick={() => abrirCanalOnDemand(channel)}>
+                Ir al Canal (On-Demand)
+            </button>
+        </>
+    );
+
+    const renderLiveBody = () => (
+        <div className="videos-horizontal-list">
+            <VideoCard 
+                className="primary-video"
+                imageUrl={primaryImageUrl}
+                altText={channel.ChannelName}
+                fallbackText={channel.ChannelName}
+                isLive={channel.ChannelLive}
+                isPremiere={channel.IsPremiere}
+                onClick={() => abrirCanal(channel)}
+            />
+            {restoActivos.map((activo, aIdx) => (
+                <VideoCard
+                    key={aIdx}
+                    className="secondary-video"
+                    imageUrl={activo.ThumbnailUrl ? getFreshImage(activo.ThumbnailUrl, channel.LastActivityAt) : undefined}
+                    altText={activo.Title}
+                    fallbackText={channel.ChannelName}
+                    isLive={true}
+                    isPremiere={activo.IsPremiere}
+                    onClick={(e) => { e.stopPropagation(); navigateYouTube(`https://www.youtube.com/watch?v=${activo.VideoId}`); }}
+                />
+            ))}
+        </div>
+    );
+
+    const renderOnDemandBody = () => (
+        <VideoCard 
+            imageUrl={channel.ChannelImgUrl}
+            altText={channel.ChannelName}
+            fallbackText={channel.ChannelName}
+        />
+    );
+
+    const renderFooter = () => (
+        <div 
+            className="last-activity-container" 
+            onClick={isLiveGroup ? () => abrirCanal(channel) : undefined} 
+            style={{ cursor: isLiveGroup ? 'pointer' : 'default' }}
+        >
+            <span className="last-activity-text">{formatActivityDate(channel.LastActivityAt)}</span>
+        </div>
+    );
+
     return (
         <div className="card-wrapper" style={cardStyle}>
             <div 
@@ -42,84 +127,11 @@ export const ChannelCard = ({
                 tabIndex={0}
                 onClick={!isLiveGroup && !isExpanded ? () => abrirCanalOnDemand(channel) : undefined}
             >
-                <div 
-                    className="card-header" 
-                    onClick={isLiveGroup ? () => abrirCanal(channel) : undefined} 
-                    style={{ cursor: isLiveGroup ? 'pointer' : 'default' }}
-                >
-                    <div className="title-group">
-                        {isLiveGroup && channel.ChannelLive && channel.ChannelImgUrl && (
-                            <img src={channel.ChannelImgUrl} alt="Logo" className="header-mini-logo" loading="lazy" />
-                        )}
-                        <h3 className="channel-title">{channel.ChannelName}</h3>
-                    </div>
-                    <button
-                        className="toggle-info-btn"
-                        onClick={(e) => { e.stopPropagation(); toggleInfo(channel.ChannelName); }}
-                    >
-                        {isExpanded ? "Ocultar" : "Info"}
-                    </button>
-                </div>
-
-                {isExpanded ? (
-                    <>
-                        <VideoCard 
-                            imageUrl={channel.ChannelImgUrl}
-                            altText={channel.ChannelName}
-                            fallbackText={channel.ChannelName}
-                            onClick={() => abrirCanalOnDemand(channel)}
-                        />
-                        <div className="channel-description" onClick={(e) => e.stopPropagation()}>
-                            <h4 className="full-title-info">{channel.ChannelName}</h4>
-                            {channel.ChannelCity && <p className="city-tag">📍 {channel.ChannelCity}</p>}
-                            <p>{channel.ChannelDescription || "Sin descripción disponible."}</p>
-                        </div>
-                        <button className="submit-btn" style={{ marginTop: '15px' }} onClick={() => abrirCanalOnDemand(channel)}>
-                            Ir al Canal (On-Demand)
-                        </button>
-                    </>
-                ) : (
-                    <>
-                        {isLiveGroup ? (
-                            <div className="videos-horizontal-list">
-                                <VideoCard 
-                                    className="primary-video"
-                                    imageUrl={primaryImageUrl}
-                                    altText={channel.ChannelName}
-                                    fallbackText={channel.ChannelName}
-                                    isLive={channel.ChannelLive}
-                                    isPremiere={channel.IsPremiere}
-                                    onClick={() => abrirCanal(channel)}
-                                />
-                                {restoActivos.map((activo, aIdx) => (
-                                    <VideoCard
-                                        key={aIdx}
-                                        className="secondary-video"
-                                        imageUrl={activo.ThumbnailUrl ? getFreshImage(activo.ThumbnailUrl, channel.LastActivityAt) : undefined}
-                                        altText={activo.Title}
-                                        fallbackText={channel.ChannelName}
-                                        isLive={true}
-                                        isPremiere={activo.IsPremiere}
-                                        onClick={(e) => { e.stopPropagation(); navigateYouTube(`https://www.youtube.com/watch?v=${activo.VideoId}`); }}
-                                    />
-                                ))}
-                            </div>
-                        ) : (
-                            <VideoCard 
-                                imageUrl={channel.ChannelImgUrl}
-                                altText={channel.ChannelName}
-                                fallbackText={channel.ChannelName}
-                            />
-                        )}
-                        <div 
-                            className="last-activity-container" 
-                            onClick={isLiveGroup ? () => abrirCanal(channel) : undefined} 
-                            style={{ cursor: isLiveGroup ? 'pointer' : 'default' }}
-                        >
-                            <span className="last-activity-text">{formatActivityDate(channel.LastActivityAt)}</span>
-                        </div>
-                    </>
-                )}
+                {renderHeader()}
+                {isExpanded && renderExpandedBody()}
+                {!isExpanded && isLiveGroup && renderLiveBody()}
+                {!isExpanded && !isLiveGroup && renderOnDemandBody()}
+                {!isExpanded && renderFooter()}
             </div>
         </div>
     );
