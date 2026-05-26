@@ -125,7 +125,7 @@ namespace ZappingStreamingDBService
                 _logger.LogInformation("=== INICIANDO TAREAS DE MANTENIMIENTO ===");
 
                 await ProcesarYActualizarCanalesAsync(stoppingToken);
-             //   await RenovarSuscripcionesWebhooksAsync(stoppingToken);
+                await RenovarSuscripcionesWebhooksAsync(stoppingToken);
 
                 _logger.LogInformation("=== TODAS LAS TAREAS COMPLETADAS CON ÉXITO ===");
             }
