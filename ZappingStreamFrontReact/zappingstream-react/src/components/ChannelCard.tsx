@@ -9,6 +9,7 @@ interface ChannelCardProps {
     isLiveGroup: boolean;
     toggleInfo: (channelName: string) => void;
     abrirCanal: (channel: Channel) => void;
+    abrirCanalOnStreams: (channel: Channel) => void;
     abrirCanalOnDemand: (channel: Channel) => void;
     navigateYouTube: (url: string) => void;
 }
@@ -19,6 +20,7 @@ export const ChannelCard = ({
     isLiveGroup,
     toggleInfo,
     abrirCanal,
+    abrirCanalOnStreams,
     abrirCanalOnDemand,
     navigateYouTube,
 }: ChannelCardProps) => {
@@ -63,7 +65,7 @@ export const ChannelCard = ({
                 imageUrl={channel.ChannelBannerUrl ? `${channel.ChannelBannerUrl}=w1707-fcrop64=1,00005a57ffffa5a8-k-c0xffffffff-no-nd-rj` : channel.ChannelImgUrl}
                 altText={channel.ChannelName}
                 fallbackText={channel.ChannelName}
-                onClick={() => abrirCanalOnDemand(channel)}
+                onClick={() => abrirCanal(channel)}
                 imageClassName="channel-banner"
             />
             <div className="channel-description" onClick={(e) => e.stopPropagation()}>
@@ -126,7 +128,7 @@ export const ChannelCard = ({
             <div 
                 className={`channel-card ${isExpanded ? "expanded-card" : ""}`} 
                 tabIndex={0}
-                onClick={!isLiveGroup && !isExpanded ? () => abrirCanalOnDemand(channel) : undefined}
+                onClick={!isLiveGroup && !isExpanded ? () => abrirCanalOnStreams(channel) : undefined}
             >
                 {renderHeader()}
                 {isExpanded && renderExpandedBody()}

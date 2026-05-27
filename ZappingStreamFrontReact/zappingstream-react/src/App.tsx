@@ -54,7 +54,13 @@ export default function App() {
       }
       navigateYouTube(urlDestino);
     } else {
-      abrirCanalOnDemand(canal);
+      abrirCanalOnStreams(canal);
+    }
+  };
+
+  const abrirCanalOnStreams = (canal: Channel) => {
+    if (canal.ChannelLiveUrl) {
+      navigateYouTube(canal.ChannelLiveUrl.replace("/live", "/streams"));
     }
   };
 
@@ -112,10 +118,10 @@ export default function App() {
 
       {showAppContent && (
         <>
-          <ChannelCategoryRow title="Full Stream" channels={streams} {...{ expandedChannels, toggleInfo, abrirCanal, abrirCanalOnDemand, navigateYouTube }} />
-          <ChannelCategoryRow title="Radio" channels={radios} {...{ expandedChannels, toggleInfo, abrirCanal, abrirCanalOnDemand, navigateYouTube }} />
-          <ChannelCategoryRow title="Televisión" channels={televisions} {...{ expandedChannels, toggleInfo, abrirCanal, abrirCanalOnDemand, navigateYouTube }} />
-          <ChannelCategoryRow title="Personal" channels={personalStreams} {...{ expandedChannels, toggleInfo, abrirCanal, abrirCanalOnDemand, navigateYouTube }} />
+          <ChannelCategoryRow title="Full Stream" channels={streams} {...{ expandedChannels, toggleInfo, abrirCanal, abrirCanalOnStreams, abrirCanalOnDemand, navigateYouTube }} />
+          <ChannelCategoryRow title="Radio" channels={radios} {...{ expandedChannels, toggleInfo, abrirCanal, abrirCanalOnStreams, abrirCanalOnDemand, navigateYouTube }} />
+          <ChannelCategoryRow title="Televisión" channels={televisions} {...{ expandedChannels, toggleInfo, abrirCanal, abrirCanalOnStreams, abrirCanalOnDemand, navigateYouTube }} />
+          <ChannelCategoryRow title="Personal" channels={personalStreams} {...{ expandedChannels, toggleInfo, abrirCanal, abrirCanalOnStreams, abrirCanalOnDemand, navigateYouTube }} />
         </>
       )}
 

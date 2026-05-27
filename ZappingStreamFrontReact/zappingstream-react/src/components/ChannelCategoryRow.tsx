@@ -9,6 +9,7 @@ interface ChannelCategoryProps {
     expandedChannels: Set<string>;
     toggleInfo: (channelName: string) => void;
     abrirCanal: (channel: Channel) => void;
+    abrirCanalOnStreams: (channel: Channel) => void;
     abrirCanalOnDemand: (channel: Channel) => void;
     navigateYouTube: (url: string) => void;
 }
@@ -19,6 +20,7 @@ export const ChannelCategoryRow = ({
     expandedChannels,
     toggleInfo,
     abrirCanal,
+    abrirCanalOnStreams,
     abrirCanalOnDemand,
     navigateYouTube,
 }: ChannelCategoryProps) => {
@@ -52,6 +54,7 @@ export const ChannelCategoryRow = ({
                                             isLiveGroup={true}
                                             toggleInfo={toggleInfo}
                                             abrirCanal={abrirCanal}
+                                            abrirCanalOnStreams={abrirCanalOnStreams}
                                             abrirCanalOnDemand={abrirCanalOnDemand}
                                             navigateYouTube={navigateYouTube}
                                         />
@@ -76,6 +79,7 @@ export const ChannelCategoryRow = ({
                                             isLiveGroup={false}
                                             toggleInfo={toggleInfo}
                                             abrirCanal={abrirCanal}
+                                            abrirCanalOnStreams={abrirCanalOnStreams}
                                             abrirCanalOnDemand={abrirCanalOnDemand}
                                             navigateYouTube={navigateYouTube}
                                         />
