@@ -309,23 +309,34 @@ namespace ZappingGhostBusterConsole
                     }
                 }
 
-                // --- D. LIMPIEZA DE PAST VIEJOS (> 7 DÍAS) --- <-- ¡NUEVO!
+              // --- D. LIMPIEZA DE PAST VIEJOS O INEXISTENTES ---
                 if (canal.Object.Past != null)
                 {
                     var limiteDeTiempo = ahora.AddDays(-7);
-
                     foreach (var pastVideo in canal.Object.Past)
                     {
-                        if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var fechaFinalizacion))
+                        bool eliminar = false;
+                        string razon = "";
+                        // 1. Verificar si pasaron más de 7 días
+                        if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var fechaFinalizacion) && fechaFinalizacion < limiteDeTiempo)
                         {
-                            if (fechaFinalizacion < limiteDeTiempo)
-                            {
-                                Console.WriteLine($"- {canal.Key}: Removiendo de Past el video antiguo {pastVideo.Key} (Terminó el {pastVideo.Value.EndedAt})");
-                                await canalRef.Child("Past").Child(pastVideo.Key).DeleteAsync();
-                            }
+                            eliminar = true;
+                            razon = "Antigüedad > 7 días";
+                        }
+                        // 2. Verificar si el video ya no existe en YouTube (Borrado / Oculto)
+                        else if (!infoDeYouTube.ContainsKey(pastVideo.Key))
+                        {
+                            eliminar = true;
+                            razon = "No existe en YouTube (Borrado o Privado)";
+                        }
+                        if (eliminar)
+                        {
+                            Console.WriteLine($"- {canal.Key}: Removiendo de Past el video {pastVideo.Key}. Razón: {razon}");
+                            await canalRef.Child("Past").Child(pastVideo.Key).DeleteAsync();
                         }
                     }
                 }
+
             }
 
             Console.WriteLine("\n=== REVISIÓN UNIFICADA FINALIZADA ===");
