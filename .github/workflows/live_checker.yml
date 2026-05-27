@@ -1,4 +1,4 @@
-name: Cazafantasmas - Upcoming
+name: Live Checker
 
 on: # Cada 21 minutos
   workflow_dispatch:
