@@ -58,8 +58,17 @@ namespace ZappingStreamingDBService
         // --- NUEVAS COLECCIONES MULTI-ESTADO ---
         public Dictionary<string, UpcomingVideo> Upcoming { get; set; }
         public Dictionary<string, ActiveVideo> Actives { get; set; }
+        public Dictionary<string, PastVideo> Past { get; set; }
     }
 
+    public class PastVideo 
+    {
+        public string VideoId { get; set; }
+        public string Title { get; set; }
+        public string EndedAt { get; set; }
+        public string ThumbnailUrl { get; set; }
+        public bool WasPremiere { get; set; }
+    }
     public class UpcomingVideo
     {
         public string VideoId { get; set; }
@@ -203,6 +212,7 @@ namespace ZappingStreamingDBService
                     // Colecciones
                     Dictionary<string, UpcomingVideo> upcomingAnterior = null;
                     Dictionary<string, ActiveVideo> activesAnterior = null;
+                    Dictionary<string, PastVideo> pastAnterior = null; // <-- 1. DECLARAMOS LA VARIABLE
 
                     if (canalesExistentes.TryGetValue(firebaseKey, out var canalAnterior))
                     {
@@ -217,6 +227,7 @@ namespace ZappingStreamingDBService
                         // RESCATAMOS LAS COLECCIONES
                         upcomingAnterior = canalAnterior.Upcoming;
                         activesAnterior = canalAnterior.Actives;
+                        pastAnterior = canalAnterior.Past; // <-- 2. RESCATAMOS LOS VIDEOS VIEJOS
                     }
                     else
                     {
@@ -248,7 +259,8 @@ namespace ZappingStreamingDBService
 
                         // DEVOLVEMOS LAS LISTAS INTACTAS AL FIREBASE
                         Upcoming = upcomingAnterior,
-                        Actives = activesAnterior
+                        Actives = activesAnterior,
+                        Past = pastAnterior // <-- 3. LO VOLVEMOS A SUBIR INTACTO
                     };
                 }
             }
