@@ -119,6 +119,15 @@ namespace ZappingGhostBusterConsole
                         }
                     }
                 }
+
+                // <-- NUEVO: Recolectar también los Past para verificar si siguen existiendo
+                if (canal.Object.Past != null)
+                {
+                    foreach (var pastKey in canal.Object.Past.Keys)
+                    {
+                        videoIds.Add(pastKey);
+                    }
+                }
             }
 
             // 2. CONSULTAR A YOUTUBE (Solo si hay IDs que investigar)
