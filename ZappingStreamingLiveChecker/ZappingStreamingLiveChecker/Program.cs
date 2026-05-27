@@ -26,7 +26,16 @@ namespace ZappingGhostBusterConsole
         public string ScheduledStartTime { get; set; }
         public string ThumbnailUrl { get; set; }
         public string AddedAt { get; set; }
-        public bool IsPremiere { get; set; } // <-- NUEVO
+        public bool IsPremiere { get; set; } 
+    }
+
+    public class PastVideo 
+    {
+        public string VideoId { get; set; }
+        public string Title { get; set; }
+        public string EndedAt { get; set; }
+        public string ThumbnailUrl { get; set; }
+        public bool WasPremiere { get; set; }
     }
 
     public class FirebaseChannel
@@ -36,11 +45,11 @@ namespace ZappingGhostBusterConsole
         public string LiveVideoId { get; set; }
         public string ChannelImgLiveUrl { get; set; }
         public string LastActivityAt { get; set; }
-        public bool IsPremiere { get; set; } // <-- NUEVO
+        public bool IsPremiere { get; set; } 
 
-        // Diccionarios para manejar multi-estado
         public Dictionary<string, UpcomingVideo> Upcoming { get; set; }
         public Dictionary<string, ActiveVideo> Actives { get; set; }
+        public Dictionary<string, PastVideo> Past { get; set; } 
     }
 
     class Program
@@ -82,16 +91,15 @@ namespace ZappingGhostBusterConsole
 
         static async Task EjecutarCazaFantasmasUnificado(FirebaseClient firebase, YouTubeService yt)
         {
-            Console.WriteLine("\n=== INICIANDO REVISIÓN UNIFICADA (VIVOS + UPCOMING) ===");
+            Console.WriteLine("\n=== INICIANDO REVISIÓN UNIFICADA (VIVOS + UPCOMING + LIMPIEZA PAST) ===");
             var estadoActualFirebase = await firebase.Child("Channels").OnceAsync<FirebaseChannel>();
 
             var ahora = DateTimeOffset.UtcNow;
             var videoIds = new HashSet<string>();
 
-            // 1. RECOLECTAR TODOS LOS IDs EN UNA SOLA BOLSA
+            // 1. RECOLECTAR TODOS LOS IDs EN UNA SOLA BOLSA (Vivos y Upcoming atrasados)
             foreach (var canal in estadoActualFirebase)
             {
-                // Extraer de Vivos
                 if (canal.Object.Actives != null)
                 {
                     foreach (var key in canal.Object.Actives.Keys) videoIds.Add(key);
@@ -101,7 +109,6 @@ namespace ZappingGhostBusterConsole
                     videoIds.Add(canal.Object.LiveVideoId);
                 }
 
-                // Extraer de Upcoming (solo los que ya pasaron su hora)
                 if (canal.Object.Upcoming != null)
                 {
                     foreach (var upc in canal.Object.Upcoming)
@@ -114,26 +121,26 @@ namespace ZappingGhostBusterConsole
                 }
             }
 
-            if (!videoIds.Any())
-            {
-                Console.WriteLine("No hay videos activos ni directos atrasados para revisar.");
-                return;
-            }
-
-            Console.WriteLine($"Se evaluarán {videoIds.Count} videos en total...");
-
-            // 2. CONSULTAR A YOUTUBE (Pidiendo todas las partes necesarias a la vez)
+            // 2. CONSULTAR A YOUTUBE (Solo si hay IDs que investigar)
             var infoDeYouTube = new Dictionary<string, Google.Apis.YouTube.v3.Data.Video>();
-            foreach (var lote in videoIds.Chunk(50))
+            if (videoIds.Any())
             {
-                var request = yt.Videos.List("snippet,status,liveStreamingDetails,contentDetails");
-                request.Id = string.Join(",", lote);
-                var response = await request.ExecuteAsync();
-
-                if (response.Items != null)
+                Console.WriteLine($"Se evaluarán {videoIds.Count} videos en YouTube...");
+                foreach (var lote in videoIds.Chunk(50))
                 {
-                    foreach (var item in response.Items) infoDeYouTube[item.Id] = item;
+                    var request = yt.Videos.List("snippet,status,liveStreamingDetails,contentDetails");
+                    request.Id = string.Join(",", lote);
+                    var response = await request.ExecuteAsync();
+
+                    if (response.Items != null)
+                    {
+                        foreach (var item in response.Items) infoDeYouTube[item.Id] = item;
+                    }
                 }
+            }
+            else
+            {
+                Console.WriteLine("No hay streams activos ni directos atrasados para consultar a YouTube.");
             }
 
             // 3. PROCESAR Y ACTUALIZAR CANAL POR CANAL
@@ -158,6 +165,17 @@ namespace ZappingGhostBusterConsole
                     if (ytVideo == null || ytVideo.Snippet?.LiveBroadcastContent != "live")
                     {
                         Console.WriteLine($"- {canal.Key}: Matando stream fantasma {kvp.Key}...");
+
+                        var pastData = new PastVideo
+                        {
+                            VideoId = kvp.Key,
+                            Title = ytVideo?.Snippet?.Title ?? kvp.Value.Title ?? "Directo finalizado",
+                            EndedAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                            ThumbnailUrl = kvp.Value.ThumbnailUrl,
+                            WasPremiere = kvp.Value.IsPremiere
+                        };
+                        await canalRef.Child("Past").Child(kvp.Key).PutAsync(pastData);
+
                         await canalRef.Child("Actives").Child(kvp.Key).DeleteAsync();
                         huboCambios = true;
                     }
@@ -198,7 +216,7 @@ namespace ZappingGhostBusterConsole
                                     Title = upc.Value.Title,
                                     ScheduledStartTime = upc.Value.ScheduledStartTime,
                                     ThumbnailUrl = upc.Value.ThumbnailUrl,
-                                    AddedAt = fechaInicioYouTube, 
+                                    AddedAt = fechaInicioYouTube,
                                     IsPremiere = tieneDuracion
                                 };
 
@@ -210,6 +228,17 @@ namespace ZappingGhostBusterConsole
                             else if (status == "none")
                             {
                                 Console.WriteLine($"- {canal.Key}: El programado {upc.Key} fue cancelado o no existe. Borrando...");
+
+                                var pastData = new PastVideo
+                                {
+                                    VideoId = upc.Key,
+                                    Title = ytVideo?.Snippet?.Title ?? upc.Value.Title ?? "Programación cancelada",
+                                    EndedAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                                    ThumbnailUrl = upc.Value.ThumbnailUrl,
+                                    WasPremiere = upc.Value.IsPremiere
+                                };
+                                await canalRef.Child("Past").Child(upc.Key).PutAsync(pastData);
+
                                 await upcomingRef.DeleteAsync();
                             }
                             else if (status == "upcoming")
@@ -218,6 +247,17 @@ namespace ZappingGhostBusterConsole
                                 if (horasAtrasado > 24)
                                 {
                                     Console.WriteLine($"- {canal.Key}: El programado {upc.Key} superó las 24hs. Eliminándolo...");
+
+                                    var pastData = new PastVideo
+                                    {
+                                        VideoId = upc.Key,
+                                        Title = ytVideo?.Snippet?.Title ?? upc.Value.Title ?? "Programación expirada",
+                                        EndedAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                                        ThumbnailUrl = upc.Value.ThumbnailUrl,
+                                        WasPremiere = upc.Value.IsPremiere
+                                    };
+                                    await canalRef.Child("Past").Child(upc.Key).PutAsync(pastData);
+
                                     await upcomingRef.DeleteAsync();
                                 }
                             }
@@ -225,7 +265,7 @@ namespace ZappingGhostBusterConsole
                     }
                 }
 
-                // --- C. RECALCULAR FALLBACK SI HUBIERON CAMBIOS ---
+                // --- C. RECALCULAR FALLBACK SI HUBO CAMBIOS ---
                 if (huboCambios)
                 {
                     if (vivosSobrevivientes.Any())
@@ -257,6 +297,24 @@ namespace ZappingGhostBusterConsole
                             LastActivityAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                             IsPremiere = false
                         });
+                    }
+                }
+
+                // --- D. LIMPIEZA DE PAST VIEJOS (> 7 DÍAS) --- <-- ¡NUEVO!
+                if (canal.Object.Past != null)
+                {
+                    var limiteDeTiempo = ahora.AddDays(-7);
+
+                    foreach (var pastVideo in canal.Object.Past)
+                    {
+                        if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var fechaFinalizacion))
+                        {
+                            if (fechaFinalizacion < limiteDeTiempo)
+                            {
+                                Console.WriteLine($"- {canal.Key}: Removiendo de Past el video antiguo {pastVideo.Key} (Terminó el {pastVideo.Value.EndedAt})");
+                                await canalRef.Child("Past").Child(pastVideo.Key).DeleteAsync();
+                            }
+                        }
                     }
                 }
             }
