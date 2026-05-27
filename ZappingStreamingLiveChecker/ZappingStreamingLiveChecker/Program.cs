@@ -34,6 +34,7 @@ namespace ZappingGhostBusterConsole
         public string VideoId { get; set; }
         public string Title { get; set; }
         public string EndedAt { get; set; }
+        public string ScheduledStartTime { get; set; }
         public string ThumbnailUrl { get; set; }
         public bool WasPremiere { get; set; }
     }
@@ -179,6 +180,7 @@ namespace ZappingGhostBusterConsole
                         {
                             VideoId = kvp.Key,
                             Title = ytVideo?.Snippet?.Title ?? kvp.Value.Title ?? "Directo finalizado",
+                            ScheduledStartTime = kvp.Value.ScheduledStartTime,
                             EndedAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                             ThumbnailUrl = kvp.Value.ThumbnailUrl,
                             WasPremiere = kvp.Value.IsPremiere
@@ -261,6 +263,7 @@ namespace ZappingGhostBusterConsole
                                     {
                                         VideoId = upc.Key,
                                         Title = ytVideo?.Snippet?.Title ?? upc.Value.Title ?? "Programación expirada",
+                                        ScheduledStartTime = upc.Value.ScheduledStartTime,
                                         EndedAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                                         ThumbnailUrl = upc.Value.ThumbnailUrl,
                                         WasPremiere = upc.Value.IsPremiere
