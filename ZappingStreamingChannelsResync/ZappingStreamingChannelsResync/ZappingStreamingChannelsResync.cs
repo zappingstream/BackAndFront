@@ -67,6 +67,8 @@ namespace ZappingStreamingDBService
         public string Title { get; set; }
         public string EndedAt { get; set; }
         public string ThumbnailUrl { get; set; }
+        public string ScheduledStartTime { get; set; }
+
         public bool WasPremiere { get; set; }
     }
     public class UpcomingVideo
