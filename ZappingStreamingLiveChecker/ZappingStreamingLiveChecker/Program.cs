@@ -124,9 +124,13 @@ namespace ZappingGhostBusterConsole
                 // <-- NUEVO: Recolectar también los Past para verificar si siguen existiendo
                 if (canal.Object.Past != null)
                 {
-                    foreach (var pastKey in canal.Object.Past.Keys)
+                    var limite12Horas = ahora.AddHours(-12);
+                    foreach (var pastVideo in canal.Object.Past)
                     {
-                        videoIds.Add(pastKey);
+                        if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var endedAt) && endedAt >= limite12Horas)
+                        {
+                            videoIds.Add(pastVideo.Key);
+                        }
                     }
                 }
             }
