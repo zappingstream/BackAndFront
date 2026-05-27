@@ -246,6 +246,7 @@ namespace ZappingStreamSyncConsole
                                     {
                                         VideoId = upc.Key,
                                         Title = ytVideo.Snippet?.Title ?? upc.Value.Title,
+                                        ScheduledStartTime = upc.Value.ScheduledStartTime,
                                         EndedAt = ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                                         ThumbnailUrl = upc.Value.ThumbnailUrl,
                                         WasPremiere = upc.Value.IsPremiere
