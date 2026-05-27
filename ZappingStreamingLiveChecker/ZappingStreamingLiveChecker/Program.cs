@@ -7,7 +7,7 @@ using Firebase.Database.Query;
 using Google.Apis.Services;
 using Google.Apis.YouTube.v3;
 
-namespace ZappingGhostBusterConsole
+namespace ZappingStreamSyncConsole
 {
     public class UpcomingVideo
     {
@@ -16,7 +16,7 @@ namespace ZappingGhostBusterConsole
         public string ScheduledStartTime { get; set; }
         public string ThumbnailUrl { get; set; }
         public string AddedAt { get; set; }
-        public bool IsPremiere { get; set; } // <-- NUEVO
+        public bool IsPremiere { get; set; }
     }
 
     public class ActiveVideo
@@ -26,10 +26,10 @@ namespace ZappingGhostBusterConsole
         public string ScheduledStartTime { get; set; }
         public string ThumbnailUrl { get; set; }
         public string AddedAt { get; set; }
-        public bool IsPremiere { get; set; } 
+        public bool IsPremiere { get; set; }
     }
 
-    public class PastVideo 
+    public class PastVideo
     {
         public string VideoId { get; set; }
         public string Title { get; set; }
@@ -46,11 +46,11 @@ namespace ZappingGhostBusterConsole
         public string LiveVideoId { get; set; }
         public string ChannelImgLiveUrl { get; set; }
         public string LastActivityAt { get; set; }
-        public bool IsPremiere { get; set; } 
+        public bool IsPremiere { get; set; }
 
         public Dictionary<string, UpcomingVideo> Upcoming { get; set; }
         public Dictionary<string, ActiveVideo> Actives { get; set; }
-        public Dictionary<string, PastVideo> Past { get; set; } 
+        public Dictionary<string, PastVideo> Past { get; set; }
     }
 
     class Program
@@ -75,12 +75,12 @@ namespace ZappingGhostBusterConsole
             var youtubeService = new YouTubeService(new BaseClientService.Initializer()
             {
                 ApiKey = ytApiKey,
-                ApplicationName = "ZappingGhostBuster"
+                ApplicationName = "ZappingStreamSync"
             });
 
             try
             {
-                await EjecutarCazaFantasmasUnificado(firebaseClient, youtubeService);
+                await SincronizarEstadoCanales(firebaseClient, youtubeService);
             }
             catch (Exception ex)
             {
@@ -90,15 +90,16 @@ namespace ZappingGhostBusterConsole
             }
         }
 
-        static async Task EjecutarCazaFantasmasUnificado(FirebaseClient firebase, YouTubeService yt)
+        static async Task SincronizarEstadoCanales(FirebaseClient firebase, YouTubeService yt)
         {
-            Console.WriteLine("\n=== INICIANDO REVISIÓN UNIFICADA (VIVOS + UPCOMING + LIMPIEZA PAST) ===");
+            Console.WriteLine("\n=== INICIANDO SINCRONIZACIÓN UNIFICADA (VIVOS + UPCOMING + LIMPIEZA PAST) ===");
             var estadoActualFirebase = await firebase.Child("Channels").OnceAsync<FirebaseChannel>();
 
             var ahora = DateTimeOffset.UtcNow;
             var videoIds = new HashSet<string>();
+            var limite12Horas = ahora.AddHours(-12);
 
-            // 1. RECOLECTAR TODOS LOS IDs EN UNA SOLA BOLSA (Vivos y Upcoming atrasados)
+            // 1. RECOLECTAR TODOS LOS IDs EN UNA SOLA BOLSA
             foreach (var canal in estadoActualFirebase)
             {
                 if (canal.Object.Actives != null)
@@ -121,10 +122,9 @@ namespace ZappingGhostBusterConsole
                     }
                 }
 
-                // <-- NUEVO: Recolectar también los Past para verificar si siguen existiendo
+                // Recolectar Past SOLO de las últimas 12 horas para cuidar la cuota
                 if (canal.Object.Past != null)
                 {
-                    var limite12Horas = ahora.AddHours(-12);
                     foreach (var pastVideo in canal.Object.Past)
                     {
                         if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var endedAt) && endedAt >= limite12Horas)
@@ -135,7 +135,7 @@ namespace ZappingGhostBusterConsole
                 }
             }
 
-            // 2. CONSULTAR A YOUTUBE (Solo si hay IDs que investigar)
+            // 2. CONSULTAR A YOUTUBE
             var infoDeYouTube = new Dictionary<string, Google.Apis.YouTube.v3.Data.Video>();
             if (videoIds.Any())
             {
@@ -152,10 +152,6 @@ namespace ZappingGhostBusterConsole
                     }
                 }
             }
-            else
-            {
-                Console.WriteLine("No hay streams activos ni directos atrasados para consultar a YouTube.");
-            }
 
             // 3. PROCESAR Y ACTUALIZAR CANAL POR CANAL
             foreach (var canal in estadoActualFirebase)
@@ -163,7 +159,6 @@ namespace ZappingGhostBusterConsole
                 var canalRef = firebase.Child("Channels").Child(canal.Key);
                 bool huboCambios = false;
 
-                // Preparar colección actual de vivos
                 var vivosActuales = canal.Object.Actives ?? new Dictionary<string, ActiveVideo>();
                 if (!vivosActuales.Any() && !string.IsNullOrEmpty(canal.Object.LiveVideoId))
                 {
@@ -176,21 +171,26 @@ namespace ZappingGhostBusterConsole
                 foreach (var kvp in vivosActuales.ToList())
                 {
                     var ytVideo = infoDeYouTube.ContainsKey(kvp.Key) ? infoDeYouTube[kvp.Key] : null;
-                    if (ytVideo == null || ytVideo.Snippet?.LiveBroadcastContent != "live")
-                    {
-                        Console.WriteLine($"- {canal.Key}: Matando stream fantasma {kvp.Key}...");
 
+                    if (ytVideo == null)
+                    {
+                        Console.WriteLine($"- {canal.Key}: Stream {kvp.Key} fue borrado o es privado. Eliminando directo de Actives...");
+                        await canalRef.Child("Actives").Child(kvp.Key).DeleteAsync();
+                        huboCambios = true;
+                    }
+                    else if (ytVideo.Snippet?.LiveBroadcastContent != "live")
+                    {
+                        Console.WriteLine($"- {canal.Key}: Stream {kvp.Key} finalizó. Moviendo a Past...");
                         var pastData = new PastVideo
                         {
                             VideoId = kvp.Key,
-                            Title = ytVideo?.Snippet?.Title ?? kvp.Value.Title ?? "Directo finalizado",
+                            Title = ytVideo.Snippet?.Title ?? kvp.Value.Title,
                             ScheduledStartTime = kvp.Value.ScheduledStartTime,
-                            EndedAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                            EndedAt = ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                             ThumbnailUrl = kvp.Value.ThumbnailUrl,
                             WasPremiere = kvp.Value.IsPremiere
                         };
                         await canalRef.Child("Past").Child(kvp.Key).PutAsync(pastData);
-
                         await canalRef.Child("Actives").Child(kvp.Key).DeleteAsync();
                         huboCambios = true;
                     }
@@ -208,72 +208,64 @@ namespace ZappingGhostBusterConsole
                         if (DateTimeOffset.TryParse(upc.Value.ScheduledStartTime, out var scheduledTime) && scheduledTime <= ahora)
                         {
                             var ytVideo = infoDeYouTube.ContainsKey(upc.Key) ? infoDeYouTube[upc.Key] : null;
-                            string status = ytVideo?.Snippet?.LiveBroadcastContent ?? "none";
                             var upcomingRef = canalRef.Child("Upcoming").Child(upc.Key);
 
-                            if (status == "live")
+                            if (ytVideo == null)
                             {
-                                Console.WriteLine($"- {canal.Key}: ¡El programado {upc.Key} está EN VIVO! Movido a Actives.");
-
-                                bool tieneDuracion = ytVideo?.ContentDetails != null &&
-                                                     ytVideo.ContentDetails.Duration != "P0D" &&
-                                                     ytVideo.ContentDetails.Duration != "PT0D";
-
-                                string fechaInicioYouTube =
-                                    ytVideo?.LiveStreamingDetails?.ActualStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ??
-                                    ytVideo?.LiveStreamingDetails?.ScheduledStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ??
-                                    ytVideo?.Snippet?.PublishedAtDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ??
-                                    DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
-
-                                var nuevoActivo = new ActiveVideo
-                                {
-                                    VideoId = upc.Value.VideoId,
-                                    Title = upc.Value.Title,
-                                    ScheduledStartTime = upc.Value.ScheduledStartTime,
-                                    ThumbnailUrl = upc.Value.ThumbnailUrl,
-                                    AddedAt = fechaInicioYouTube,
-                                    IsPremiere = tieneDuracion
-                                };
-
-                                await canalRef.Child("Actives").Child(upc.Key).PutAsync(nuevoActivo);
-                                vivosSobrevivientes.Add(nuevoActivo);
-                                await upcomingRef.DeleteAsync();
-                                huboCambios = true;
-                            }
-                            else if (status == "none")
-                            {
-                                Console.WriteLine($"- {canal.Key}: El programado {upc.Key} fue cancelado o no existe. Borrando...");
-
-                                var pastData = new PastVideo
-                                {
-                                    VideoId = upc.Key,
-                                    Title = ytVideo?.Snippet?.Title ?? upc.Value.Title ?? "Programación cancelada",
-                                    EndedAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                                    ThumbnailUrl = upc.Value.ThumbnailUrl,
-                                    WasPremiere = upc.Value.IsPremiere
-                                };
-                                await canalRef.Child("Past").Child(upc.Key).PutAsync(pastData);
-
+                                Console.WriteLine($"- {canal.Key}: El programado {upc.Key} fue cancelado/borrado. Borrando directo...");
                                 await upcomingRef.DeleteAsync();
                             }
-                            else if (status == "upcoming")
+                            else
                             {
-                                var horasAtrasado = (ahora - scheduledTime).TotalHours;
-                                if (horasAtrasado > 24)
-                                {
-                                    Console.WriteLine($"- {canal.Key}: El programado {upc.Key} superó las 24hs. Eliminándolo...");
+                                string status = ytVideo.Snippet?.LiveBroadcastContent ?? "none";
 
+                                if (status == "live")
+                                {
+                                    Console.WriteLine($"- {canal.Key}: ¡El programado {upc.Key} está EN VIVO! Movido a Actives.");
+                                    bool tieneDuracion = ytVideo.ContentDetails != null && ytVideo.ContentDetails.Duration != "P0D" && ytVideo.ContentDetails.Duration != "PT0D";
+                                    string fechaInicioYouTube = ytVideo.LiveStreamingDetails?.ActualStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ?? ahora.ToString("yyyy-MM-ddTHH:mm:ssZ");
+
+                                    var nuevoActivo = new ActiveVideo
+                                    {
+                                        VideoId = upc.Value.VideoId,
+                                        Title = upc.Value.Title,
+                                        ScheduledStartTime = upc.Value.ScheduledStartTime,
+                                        ThumbnailUrl = upc.Value.ThumbnailUrl,
+                                        AddedAt = fechaInicioYouTube,
+                                        IsPremiere = tieneDuracion
+                                    };
+                                    await canalRef.Child("Actives").Child(upc.Key).PutAsync(nuevoActivo);
+                                    vivosSobrevivientes.Add(nuevoActivo);
+                                    await upcomingRef.DeleteAsync();
+                                    huboCambios = true;
+                                }
+                                else if (status == "none")
+                                {
+                                    Console.WriteLine($"- {canal.Key}: El programado {upc.Key} es un video normal ahora. Moviendo a Past...");
                                     var pastData = new PastVideo
                                     {
                                         VideoId = upc.Key,
-                                        Title = ytVideo?.Snippet?.Title ?? upc.Value.Title ?? "Programación expirada",
-                                        ScheduledStartTime = upc.Value.ScheduledStartTime,
-                                        EndedAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                                        Title = ytVideo.Snippet?.Title ?? upc.Value.Title,
+                                        EndedAt = ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                                         ThumbnailUrl = upc.Value.ThumbnailUrl,
                                         WasPremiere = upc.Value.IsPremiere
                                     };
                                     await canalRef.Child("Past").Child(upc.Key).PutAsync(pastData);
-
+                                    await upcomingRef.DeleteAsync();
+                                }
+                                else if (status == "upcoming" && (ahora - scheduledTime).TotalHours > 24)
+                                {
+                                    Console.WriteLine($"- {canal.Key}: El programado {upc.Key} superó las 24hs. Moviendo a Past...");
+                                    var pastData = new PastVideo
+                                    {
+                                        VideoId = upc.Key,
+                                        Title = ytVideo.Snippet?.Title ?? upc.Value.Title,
+                                        ScheduledStartTime = upc.Value.ScheduledStartTime,
+                                        EndedAt = ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                                        ThumbnailUrl = upc.Value.ThumbnailUrl,
+                                        WasPremiere = upc.Value.IsPremiere
+                                    };
+                                    await canalRef.Child("Past").Child(upc.Key).PutAsync(pastData);
                                     await upcomingRef.DeleteAsync();
                                 }
                             }
@@ -286,19 +278,14 @@ namespace ZappingGhostBusterConsole
                 {
                     if (vivosSobrevivientes.Any())
                     {
-                        var streamGanador = vivosSobrevivientes
-                            .OrderBy(v => v.IsPremiere)
-                            .ThenByDescending(v => v.AddedAt ?? "")
-                            .First();
-
+                        var streamGanador = vivosSobrevivientes.OrderBy(v => v.IsPremiere).ThenByDescending(v => v.AddedAt ?? "").First();
                         Console.WriteLine($"> {canal.Key}: Recalculando... Portada global asignada a {streamGanador.VideoId}");
-
                         await canalRef.PatchAsync(new
                         {
                             ChannelLive = true,
                             LiveVideoId = streamGanador.VideoId,
                             ChannelImgLiveUrl = streamGanador.ThumbnailUrl ?? canal.Object.ChannelImgLiveUrl,
-                            LastActivityAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                            LastActivityAt = ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                             IsPremiere = streamGanador.IsPremiere
                         });
                     }
@@ -310,32 +297,42 @@ namespace ZappingGhostBusterConsole
                             ChannelLive = false,
                             LiveVideoId = "",
                             ChannelImgLiveUrl = "",
-                            LastActivityAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                            LastActivityAt = ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                             IsPremiere = false
                         });
                     }
                 }
 
-              // --- D. LIMPIEZA DE PAST VIEJOS O INEXISTENTES ---
+                // --- D. LIMPIEZA DE PAST VIEJOS O INEXISTENTES ---
                 if (canal.Object.Past != null)
                 {
-                    var limiteDeTiempo = ahora.AddDays(-7);
+                    var limite7Dias = ahora.AddDays(-7);
                     foreach (var pastVideo in canal.Object.Past)
                     {
                         bool eliminar = false;
                         string razon = "";
-                        // 1. Verificar si pasaron más de 7 días
-                        if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var fechaFinalizacion) && fechaFinalizacion < limiteDeTiempo)
+
+                        if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var fechaFinalizacion))
+                        {
+                            // 1. Limpieza natural por antigüedad (> 7 días)
+                            if (fechaFinalizacion < limite7Dias)
+                            {
+                                eliminar = true;
+                                razon = "Antigüedad > 7 días";
+                            }
+                            // 2. Limpieza rápida si el video finalizó hace menos de 12hs y fue borrado/privado
+                            else if (fechaFinalizacion >= limite12Horas && !infoDeYouTube.ContainsKey(pastVideo.Key))
+                            {
+                                eliminar = true;
+                                razon = "Borrado o Privado en YouTube post-transmisión";
+                            }
+                        }
+                        else
                         {
                             eliminar = true;
-                            razon = "Antigüedad > 7 días";
+                            razon = "Fecha EndedAt inválida";
                         }
-                        // 2. Verificar si el video ya no existe en YouTube (Borrado / Oculto)
-                        else if (!infoDeYouTube.ContainsKey(pastVideo.Key))
-                        {
-                            eliminar = true;
-                            razon = "No existe en YouTube (Borrado o Privado)";
-                        }
+
                         if (eliminar)
                         {
                             Console.WriteLine($"- {canal.Key}: Removiendo de Past el video {pastVideo.Key}. Razón: {razon}");
@@ -343,10 +340,9 @@ namespace ZappingGhostBusterConsole
                         }
                     }
                 }
-
             }
 
-            Console.WriteLine("\n=== REVISIÓN UNIFICADA FINALIZADA ===");
+            Console.WriteLine("\n=== SINCRONIZACIÓN UNIFICADA FINALIZADA ===");
         }
     }
 }
