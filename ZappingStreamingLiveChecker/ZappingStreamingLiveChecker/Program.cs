@@ -57,6 +57,12 @@ namespace ZappingStreamSyncConsole
     {
         static async Task Main(string[] args)
         {
+            if (args.Length == 0)
+            {
+                Console.WriteLine("Por favor, especifica un comando: --livechecker o --removeRemovedPasts");
+                Environment.Exit(1);
+            }
+
             string firebaseUrl = "https://zappingstreaming-default-rtdb.firebaseio.com/";
             string ytApiKey = Environment.GetEnvironmentVariable("YOUTUBE_APIKEY") ?? "";
             string firebaseSecret = Environment.GetEnvironmentVariable("FIREBASE_SECRET") ?? "";
@@ -80,7 +86,18 @@ namespace ZappingStreamSyncConsole
 
             try
             {
-                await SincronizarEstadoCanales(firebaseClient, youtubeService);
+                if (args.Contains("--livechecker"))
+                {
+                    await EjecutarLiveChecker(firebaseClient, youtubeService);
+                }
+                else if (args.Contains("--removeRemovedPasts"))
+                {
+                    await EjecutarLimpiezaPasts(firebaseClient, youtubeService);
+                }
+                else
+                {
+                    Console.WriteLine("Comando no reconocido. Usa --livechecker o --removeRemovedPasts");
+                }
             }
             catch (Exception ex)
             {
@@ -90,16 +107,18 @@ namespace ZappingStreamSyncConsole
             }
         }
 
-        static async Task SincronizarEstadoCanales(FirebaseClient firebase, YouTubeService yt)
+        // ==========================================
+        // MÓDULO 1: LIVE CHECKER (Vivos y Upcoming)
+        // ==========================================
+        static async Task EjecutarLiveChecker(FirebaseClient firebase, YouTubeService yt)
         {
-            Console.WriteLine("\n=== INICIANDO SINCRONIZACIÓN UNIFICADA (VIVOS + UPCOMING + LIMPIEZA PAST) ===");
+            Console.WriteLine("\n=== INICIANDO LIVE CHECKER ===");
             var estadoActualFirebase = await firebase.Child("Channels").OnceAsync<FirebaseChannel>();
 
             var ahora = DateTimeOffset.UtcNow;
             var videoIds = new HashSet<string>();
-            var limite12Horas = ahora.AddHours(-12);
 
-            // 1. RECOLECTAR TODOS LOS IDs EN UNA SOLA BOLSA
+            // 1. RECOLECTAR IDs DE ACTIVES Y UPCOMING
             foreach (var canal in estadoActualFirebase)
             {
                 if (canal.Object.Actives != null)
@@ -124,24 +143,9 @@ namespace ZappingStreamSyncConsole
             }
 
             // 2. CONSULTAR A YOUTUBE
-            var infoDeYouTube = new Dictionary<string, Google.Apis.YouTube.v3.Data.Video>();
-            if (videoIds.Any())
-            {
-                Console.WriteLine($"Se evaluarán {videoIds.Count} videos en YouTube...");
-                foreach (var lote in videoIds.Chunk(50))
-                {
-                    var request = yt.Videos.List("snippet,status,liveStreamingDetails,contentDetails");
-                    request.Id = string.Join(",", lote);
-                    var response = await request.ExecuteAsync();
+            var infoDeYouTube = await ConsultarVideosEnYouTube(yt, videoIds);
 
-                    if (response.Items != null)
-                    {
-                        foreach (var item in response.Items) infoDeYouTube[item.Id] = item;
-                    }
-                }
-            }
-
-            // 3. PROCESAR Y ACTUALIZAR CANAL POR CANAL
+            // 3. PROCESAR
             foreach (var canal in estadoActualFirebase)
             {
                 var canalRef = firebase.Child("Channels").Child(canal.Key);
@@ -170,7 +174,6 @@ namespace ZappingStreamSyncConsole
                     {
                         Console.WriteLine($"- {canal.Key}: Stream {kvp.Key} finalizó. Moviendo a Past...");
 
-                        // 👇 CORREGIDO: Se respeta el nulo si no hay fecha programada real
                         string startTimeFallbackVivos = !string.IsNullOrEmpty(kvp.Value.ScheduledStartTime)
                             ? kvp.Value.ScheduledStartTime
                             : ytVideo.LiveStreamingDetails?.ScheduledStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ");
@@ -223,7 +226,6 @@ namespace ZappingStreamSyncConsole
                                     {
                                         VideoId = upc.Value.VideoId,
                                         Title = upc.Value.Title,
-                                        // ScheduledStartTime se arrastra tal cual de Upcoming (que ya debe estar limpio)
                                         ScheduledStartTime = upc.Value.ScheduledStartTime,
                                         ThumbnailUrl = upc.Value.ThumbnailUrl,
                                         AddedAt = fechaInicioYouTube,
@@ -238,7 +240,6 @@ namespace ZappingStreamSyncConsole
                                 {
                                     Console.WriteLine($"- {canal.Key}: El programado {upc.Key} es un video normal ahora. Moviendo a Past...");
 
-                                    // 👇 CORREGIDO: Se respeta el nulo al mover un cancelado a Past
                                     string startTimeFallbackUpcoming = !string.IsNullOrEmpty(upc.Value.ScheduledStartTime)
                                         ? upc.Value.ScheduledStartTime
                                         : ytVideo.LiveStreamingDetails?.ScheduledStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ");
@@ -294,45 +295,99 @@ namespace ZappingStreamSyncConsole
                         });
                     }
                 }
+            }
 
-                // --- D. LIMPIEZA DE PAST VIEJOS O INEXISTENTES ---
+            Console.WriteLine("\n=== LIVE CHECKER FINALIZADO ===");
+        }
+
+        // ==========================================
+        // MÓDULO 2: LIMPIEZA DE PASTS
+        // ==========================================
+        static async Task EjecutarLimpiezaPasts(FirebaseClient firebase, YouTubeService yt)
+        {
+            Console.WriteLine("\n=== INICIANDO LIMPIEZA DE PASTS REMOVIDOS ===");
+            var estadoActualFirebase = await firebase.Child("Channels").OnceAsync<FirebaseChannel>();
+            var videoIds = new HashSet<string>();
+
+            // 1. RECOLECTAR IDs SOLO DE PAST
+            foreach (var canal in estadoActualFirebase)
+            {
                 if (canal.Object.Past != null)
                 {
-                    var limite7Dias = ahora.AddDays(-7);
                     foreach (var pastVideo in canal.Object.Past)
                     {
-                        bool eliminar = false;
-                        string razon = "";
-
-                        if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var fechaFinalizacion))
-                        {
-                            if (fechaFinalizacion < limite7Dias)
-                            {
-                                eliminar = true;
-                                razon = "Antigüedad > 7 días";
-                            }
-                            else if (fechaFinalizacion >= limite12Horas && !infoDeYouTube.ContainsKey(pastVideo.Key))
-                            {
-                                eliminar = true;
-                                razon = "Borrado o Privado en YouTube post-transmisión";
-                            }
-                        }
-                        else
-                        {
-                            eliminar = true;
-                            razon = "Fecha EndedAt inválida";
-                        }
-
-                        if (eliminar)
-                        {
-                            Console.WriteLine($"- {canal.Key}: Removiendo de Past el video {pastVideo.Key}. Razón: {razon}");
-                            await canalRef.Child("Past").Child(pastVideo.Key).DeleteAsync();
-                        }
+                        videoIds.Add(pastVideo.Key);
                     }
                 }
             }
 
-            Console.WriteLine("\n=== SINCRONIZACIÓN UNIFICADA FINALIZADA ===");
+            if (!videoIds.Any())
+            {
+                Console.WriteLine("No hay videos en Past para evaluar. Saliendo...");
+                return;
+            }
+
+            // 2. CONSULTAR A YOUTUBE
+            var infoDeYouTube = await ConsultarVideosEnYouTube(yt, videoIds);
+            var ahora = DateTimeOffset.UtcNow;
+            var limite7Dias = ahora.AddDays(-7);
+
+            // 3. PROCESAR
+            foreach (var canal in estadoActualFirebase)
+            {
+                if (canal.Object.Past == null) continue;
+
+                var canalRef = firebase.Child("Channels").Child(canal.Key);
+
+                foreach (var pastVideo in canal.Object.Past)
+                {
+                    bool eliminar = false;
+                    string razon = "";
+
+                    if (!infoDeYouTube.ContainsKey(pastVideo.Key))
+                    {
+                        eliminar = true;
+                        razon = "Borrado o puesto en Privado en YouTube";
+                    }
+                    else if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var fechaFinalizacion) && fechaFinalizacion < limite7Dias)
+                    {
+                        eliminar = true;
+                        razon = "Antigüedad > 7 días en historial";
+                    }
+
+                    if (eliminar)
+                    {
+                        Console.WriteLine($"- {canal.Key}: Removiendo de Past el video {pastVideo.Key}. Razón: {razon}");
+                        await canalRef.Child("Past").Child(pastVideo.Key).DeleteAsync();
+                    }
+                }
+            }
+
+            Console.WriteLine("\n=== LIMPIEZA DE PASTS FINALIZADA ===");
+        }
+
+        // ==========================================
+        // MÉTODO AUXILIAR PARA LLAMAR A YOUTUBE
+        // ==========================================
+        static async Task<Dictionary<string, Google.Apis.YouTube.v3.Data.Video>> ConsultarVideosEnYouTube(YouTubeService yt, HashSet<string> videoIds)
+        {
+            var infoDeYouTube = new Dictionary<string, Google.Apis.YouTube.v3.Data.Video>();
+            if (videoIds.Any())
+            {
+                Console.WriteLine($"Consultando {videoIds.Count} videos en YouTube...");
+                foreach (var lote in videoIds.Chunk(50))
+                {
+                    var request = yt.Videos.List("snippet,status,liveStreamingDetails,contentDetails");
+                    request.Id = string.Join(",", lote);
+                    var response = await request.ExecuteAsync();
+
+                    if (response.Items != null)
+                    {
+                        foreach (var item in response.Items) infoDeYouTube[item.Id] = item;
+                    }
+                }
+            }
+            return infoDeYouTube;
         }
     }
 }
