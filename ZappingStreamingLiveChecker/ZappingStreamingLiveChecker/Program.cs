@@ -181,11 +181,19 @@ namespace ZappingStreamSyncConsole
                     else if (ytVideo.Snippet?.LiveBroadcastContent != "live")
                     {
                         Console.WriteLine($"- {canal.Key}: Stream {kvp.Key} finalizó. Moviendo a Past...");
+
+                        string startTimeFallbackVivos = !string.IsNullOrEmpty(kvp.Value.ScheduledStartTime)
+                            ? kvp.Value.ScheduledStartTime
+                            : (ytVideo.LiveStreamingDetails?.ScheduledStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ??
+                               ytVideo.LiveStreamingDetails?.ActualStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ??
+                               ytVideo.Snippet?.PublishedAtDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ??
+                               ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+
                         var pastData = new PastVideo
                         {
                             VideoId = kvp.Key,
                             Title = ytVideo.Snippet?.Title ?? kvp.Value.Title,
-                            ScheduledStartTime = kvp.Value.ScheduledStartTime,
+                            ScheduledStartTime = startTimeFallbackVivos,
                             EndedAt = ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                             ThumbnailUrl = kvp.Value.ThumbnailUrl,
                             WasPremiere = kvp.Value.IsPremiere
@@ -242,11 +250,18 @@ namespace ZappingStreamSyncConsole
                                 else if (status == "none")
                                 {
                                     Console.WriteLine($"- {canal.Key}: El programado {upc.Key} es un video normal ahora. Moviendo a Past...");
+
+                                    string startTimeFallbackUpcoming = !string.IsNullOrEmpty(upc.Value.ScheduledStartTime)
+                                        ? upc.Value.ScheduledStartTime
+                                        : (ytVideo.LiveStreamingDetails?.ScheduledStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ??
+                                           ytVideo.Snippet?.PublishedAtDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ??
+                                           ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+
                                     var pastData = new PastVideo
                                     {
                                         VideoId = upc.Key,
                                         Title = ytVideo.Snippet?.Title ?? upc.Value.Title,
-                                        ScheduledStartTime = upc.Value.ScheduledStartTime,
+                                        ScheduledStartTime = startTimeFallbackUpcoming,
                                         EndedAt = ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                                         ThumbnailUrl = upc.Value.ThumbnailUrl,
                                         WasPremiere = upc.Value.IsPremiere
@@ -256,17 +271,8 @@ namespace ZappingStreamSyncConsole
                                 }
                                 else if (status == "upcoming" && (ahora - scheduledTime).TotalHours > 24)
                                 {
-                                    Console.WriteLine($"- {canal.Key}: El programado {upc.Key} superó las 24hs. Moviendo a Past...");
-                                    var pastData = new PastVideo
-                                    {
-                                        VideoId = upc.Key,
-                                        Title = ytVideo.Snippet?.Title ?? upc.Value.Title,
-                                        ScheduledStartTime = upc.Value.ScheduledStartTime,
-                                        EndedAt = ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                                        ThumbnailUrl = upc.Value.ThumbnailUrl,
-                                        WasPremiere = upc.Value.IsPremiere
-                                    };
-                                    await canalRef.Child("Past").Child(upc.Key).PutAsync(pastData);
+                                    // 👇 ACÁ ESTÁ EL CAMBIO: Se borra sin pasar a Past.
+                                    Console.WriteLine($"- {canal.Key}: El programado {upc.Key} superó las 24hs colgado. Eliminándolo definitivamente...");
                                     await upcomingRef.DeleteAsync();
                                 }
                             }
@@ -315,13 +321,11 @@ namespace ZappingStreamSyncConsole
 
                         if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var fechaFinalizacion))
                         {
-                            // 1. Limpieza natural por antigüedad (> 7 días)
                             if (fechaFinalizacion < limite7Dias)
                             {
                                 eliminar = true;
                                 razon = "Antigüedad > 7 días";
                             }
-                            // 2. Limpieza rápida si el video finalizó hace menos de 12hs y fue borrado/privado
                             else if (fechaFinalizacion >= limite12Horas && !infoDeYouTube.ContainsKey(pastVideo.Key))
                             {
                                 eliminar = true;
