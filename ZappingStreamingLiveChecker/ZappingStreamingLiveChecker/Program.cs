@@ -182,12 +182,10 @@ namespace ZappingStreamSyncConsole
                     {
                         Console.WriteLine($"- {canal.Key}: Stream {kvp.Key} finalizó. Moviendo a Past...");
 
+                        // 👇 CORREGIDO: Se respeta el nulo si no hay fecha programada real
                         string startTimeFallbackVivos = !string.IsNullOrEmpty(kvp.Value.ScheduledStartTime)
                             ? kvp.Value.ScheduledStartTime
-                            : (ytVideo.LiveStreamingDetails?.ScheduledStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ??
-                               ytVideo.LiveStreamingDetails?.ActualStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ??
-                               ytVideo.Snippet?.PublishedAtDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ??
-                               ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+                            : ytVideo.LiveStreamingDetails?.ScheduledStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
                         var pastData = new PastVideo
                         {
@@ -237,6 +235,7 @@ namespace ZappingStreamSyncConsole
                                     {
                                         VideoId = upc.Value.VideoId,
                                         Title = upc.Value.Title,
+                                        // ScheduledStartTime se arrastra tal cual de Upcoming (que ya debe estar limpio)
                                         ScheduledStartTime = upc.Value.ScheduledStartTime,
                                         ThumbnailUrl = upc.Value.ThumbnailUrl,
                                         AddedAt = fechaInicioYouTube,
@@ -251,11 +250,10 @@ namespace ZappingStreamSyncConsole
                                 {
                                     Console.WriteLine($"- {canal.Key}: El programado {upc.Key} es un video normal ahora. Moviendo a Past...");
 
+                                    // 👇 CORREGIDO: Se respeta el nulo al mover un cancelado a Past
                                     string startTimeFallbackUpcoming = !string.IsNullOrEmpty(upc.Value.ScheduledStartTime)
                                         ? upc.Value.ScheduledStartTime
-                                        : (ytVideo.LiveStreamingDetails?.ScheduledStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ??
-                                           ytVideo.Snippet?.PublishedAtDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ??
-                                           ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+                                        : ytVideo.LiveStreamingDetails?.ScheduledStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
                                     var pastData = new PastVideo
                                     {
@@ -271,7 +269,6 @@ namespace ZappingStreamSyncConsole
                                 }
                                 else if (status == "upcoming" && (ahora - scheduledTime).TotalHours > 24)
                                 {
-                                    // 👇 ACÁ ESTÁ EL CAMBIO: Se borra sin pasar a Past.
                                     Console.WriteLine($"- {canal.Key}: El programado {upc.Key} superó las 24hs colgado. Eliminándolo definitivamente...");
                                     await upcomingRef.DeleteAsync();
                                 }
