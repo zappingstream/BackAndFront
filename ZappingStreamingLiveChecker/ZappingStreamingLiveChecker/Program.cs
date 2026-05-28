@@ -121,18 +121,6 @@ namespace ZappingStreamSyncConsole
                         }
                     }
                 }
-
-                // Recolectar Past SOLO de las últimas 12 horas para cuidar la cuota
-                if (canal.Object.Past != null)
-                {
-                    foreach (var pastVideo in canal.Object.Past)
-                    {
-                        if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var endedAt) && endedAt >= limite12Horas)
-                        {
-                            videoIds.Add(pastVideo.Key);
-                        }
-                    }
-                }
             }
 
             // 2. CONSULTAR A YOUTUBE
