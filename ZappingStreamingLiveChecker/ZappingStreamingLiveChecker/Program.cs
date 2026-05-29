@@ -13,30 +13,45 @@ namespace ZappingStreamSyncConsole
     {
         public string VideoId { get; set; }
         public string Title { get; set; }
-        public string ScheduledStartTime { get; set; }
         public string ThumbnailUrl { get; set; }
-        public string AddedAt { get; set; }
         public bool IsPremiere { get; set; }
+
+        // Tiempos
+        public string PublishedAt { get; set; }
+        public string ScheduledStartTime { get; set; }
+        public string ActualStartTime { get; set; }
+        public string ActualEndTime { get; set; }
+        public string AddedAt { get; set; }
     }
 
     public class ActiveVideo
     {
         public string VideoId { get; set; }
         public string Title { get; set; }
-        public string ScheduledStartTime { get; set; }
         public string ThumbnailUrl { get; set; }
-        public string AddedAt { get; set; }
         public bool IsPremiere { get; set; }
+
+        // Tiempos
+        public string PublishedAt { get; set; }
+        public string ScheduledStartTime { get; set; }
+        public string ActualStartTime { get; set; }
+        public string ActualEndTime { get; set; }
+        public string AddedAt { get; set; }
     }
 
     public class PastVideo
     {
         public string VideoId { get; set; }
         public string Title { get; set; }
-        public string EndedAt { get; set; }
-        public string ScheduledStartTime { get; set; }
         public string ThumbnailUrl { get; set; }
         public bool WasPremiere { get; set; }
+
+        // Tiempos
+        public string PublishedAt { get; set; }
+        public string ScheduledStartTime { get; set; }
+        public string ActualStartTime { get; set; }
+        public string ActualEndTime { get; set; }
+        public string EndedAt { get; set; }
     }
 
     public class FirebaseChannel
@@ -116,6 +131,7 @@ namespace ZappingStreamSyncConsole
             var estadoActualFirebase = await firebase.Child("Channels").OnceAsync<FirebaseChannel>();
 
             var ahora = DateTimeOffset.UtcNow;
+            string sysTimeNow = ahora.ToString("yyyy-MM-ddTHH:mm:ssZ");
             var videoIds = new HashSet<string>();
 
             // 1. RECOLECTAR IDs DE ACTIVES Y UPCOMING
@@ -174,19 +190,27 @@ namespace ZappingStreamSyncConsole
                     {
                         Console.WriteLine($"- {canal.Key}: Stream {kvp.Key} finalizó. Moviendo a Past...");
 
-                        string startTimeFallbackVivos = !string.IsNullOrEmpty(kvp.Value.ScheduledStartTime)
-                            ? kvp.Value.ScheduledStartTime
-                            : ytVideo.LiveStreamingDetails?.ScheduledStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                        // Extracción de tiempos
+                        string publishedAt = ytVideo.Snippet?.PublishedAtDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                        string scheduledStart = ytVideo.LiveStreamingDetails?.ScheduledStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                        string actualStart = ytVideo.LiveStreamingDetails?.ActualStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                        string actualEnd = ytVideo.LiveStreamingDetails?.ActualEndTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
                         var pastData = new PastVideo
                         {
                             VideoId = kvp.Key,
                             Title = ytVideo.Snippet?.Title ?? kvp.Value.Title,
-                            ScheduledStartTime = startTimeFallbackVivos,
-                            EndedAt = ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                             ThumbnailUrl = kvp.Value.ThumbnailUrl,
-                            WasPremiere = kvp.Value.IsPremiere
+                            WasPremiere = kvp.Value.IsPremiere,
+
+                            // Resguardos por si YT no devuelve algo
+                            PublishedAt = publishedAt ?? kvp.Value.PublishedAt,
+                            ScheduledStartTime = scheduledStart ?? kvp.Value.ScheduledStartTime,
+                            ActualStartTime = actualStart ?? kvp.Value.ActualStartTime,
+                            ActualEndTime = actualEnd ?? sysTimeNow,
+                            EndedAt = sysTimeNow
                         };
+
                         await canalRef.Child("Past").Child(kvp.Key).PutAsync(pastData);
                         await canalRef.Child("Actives").Child(kvp.Key).DeleteAsync();
                         huboCambios = true;
@@ -215,22 +239,31 @@ namespace ZappingStreamSyncConsole
                             else
                             {
                                 string status = ytVideo.Snippet?.LiveBroadcastContent ?? "none";
+                                string publishedAt = ytVideo.Snippet?.PublishedAtDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                                string scheduledStart = ytVideo.LiveStreamingDetails?.ScheduledStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                                string actualStart = ytVideo.LiveStreamingDetails?.ActualStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                                string actualEnd = ytVideo.LiveStreamingDetails?.ActualEndTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
                                 if (status == "live")
                                 {
                                     Console.WriteLine($"- {canal.Key}: ¡El programado {upc.Key} está EN VIVO! Movido a Actives.");
                                     bool tieneDuracion = ytVideo.ContentDetails != null && ytVideo.ContentDetails.Duration != "P0D" && ytVideo.ContentDetails.Duration != "PT0D";
-                                    string fechaInicioYouTube = ytVideo.LiveStreamingDetails?.ActualStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ") ?? ahora.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
                                     var nuevoActivo = new ActiveVideo
                                     {
                                         VideoId = upc.Value.VideoId,
-                                        Title = upc.Value.Title,
-                                        ScheduledStartTime = upc.Value.ScheduledStartTime,
+                                        Title = ytVideo.Snippet?.Title ?? upc.Value.Title,
                                         ThumbnailUrl = upc.Value.ThumbnailUrl,
-                                        AddedAt = fechaInicioYouTube,
-                                        IsPremiere = tieneDuracion
+                                        IsPremiere = tieneDuracion,
+
+                                        // Mapeo unificado
+                                        PublishedAt = publishedAt ?? upc.Value.PublishedAt,
+                                        ScheduledStartTime = scheduledStart ?? upc.Value.ScheduledStartTime,
+                                        ActualStartTime = actualStart ?? sysTimeNow,
+                                        ActualEndTime = actualEnd,
+                                        AddedAt = sysTimeNow
                                     };
+
                                     await canalRef.Child("Actives").Child(upc.Key).PutAsync(nuevoActivo);
                                     vivosSobrevivientes.Add(nuevoActivo);
                                     await upcomingRef.DeleteAsync();
@@ -240,19 +273,21 @@ namespace ZappingStreamSyncConsole
                                 {
                                     Console.WriteLine($"- {canal.Key}: El programado {upc.Key} es un video normal ahora. Moviendo a Past...");
 
-                                    string startTimeFallbackUpcoming = !string.IsNullOrEmpty(upc.Value.ScheduledStartTime)
-                                        ? upc.Value.ScheduledStartTime
-                                        : ytVideo.LiveStreamingDetails?.ScheduledStartTimeDateTimeOffset?.ToString("yyyy-MM-ddTHH:mm:ssZ");
-
                                     var pastData = new PastVideo
                                     {
                                         VideoId = upc.Key,
                                         Title = ytVideo.Snippet?.Title ?? upc.Value.Title,
-                                        ScheduledStartTime = startTimeFallbackUpcoming,
-                                        EndedAt = ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                                         ThumbnailUrl = upc.Value.ThumbnailUrl,
-                                        WasPremiere = upc.Value.IsPremiere
+                                        WasPremiere = upc.Value.IsPremiere,
+
+                                        // Mapeo con resguardos
+                                        PublishedAt = publishedAt ?? upc.Value.PublishedAt,
+                                        ScheduledStartTime = scheduledStart ?? upc.Value.ScheduledStartTime,
+                                        ActualStartTime = actualStart ?? upc.Value.ActualStartTime,
+                                        ActualEndTime = actualEnd ?? sysTimeNow,
+                                        EndedAt = sysTimeNow
                                     };
+
                                     await canalRef.Child("Past").Child(upc.Key).PutAsync(pastData);
                                     await upcomingRef.DeleteAsync();
                                 }
@@ -278,7 +313,7 @@ namespace ZappingStreamSyncConsole
                             ChannelLive = true,
                             LiveVideoId = streamGanador.VideoId,
                             ChannelImgLiveUrl = streamGanador.ThumbnailUrl ?? canal.Object.ChannelImgLiveUrl,
-                            LastActivityAt = ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                            LastActivityAt = sysTimeNow,
                             IsPremiere = streamGanador.IsPremiere
                         });
                     }
@@ -290,7 +325,7 @@ namespace ZappingStreamSyncConsole
                             ChannelLive = false,
                             LiveVideoId = "",
                             ChannelImgLiveUrl = "",
-                            LastActivityAt = ahora.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                            LastActivityAt = sysTimeNow,
                             IsPremiere = false
                         });
                     }
@@ -349,6 +384,7 @@ namespace ZappingStreamSyncConsole
                         eliminar = true;
                         razon = "Borrado o puesto en Privado en YouTube";
                     }
+                    // Utilizamos el nuevo EndedAt para evaluar si ya pasaron 7 días
                     else if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var fechaFinalizacion) && fechaFinalizacion < limite7Dias)
                     {
                         eliminar = true;
