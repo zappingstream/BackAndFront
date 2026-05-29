@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, type RefObject } from 'react';
 import type { Channel, UpcomingVideo, ActiveVideo } from '../models/Channel';
+import { getFreshImage } from '../index';
 import { VideoCard } from './VideoCard';
 import { ChannelCard } from './ChannelCard';
 import { useHorizontalScroll } from '../hooks/useHorizontalScroll';
@@ -14,6 +15,7 @@ const EpgTrack = ({ row, navigateYouTube }: { row: any, navigateYouTube: (url: s
                 const exactDate = new Date(ev.ScheduledStartTime);
                 const timeStr = isNaN(exactDate.getTime()) ? "??:??" : exactDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
                 const isPastEvent = ev.IsPast && !ev.Live;
+                const rawImageUrl = ev.ThumbnailUrl || ev.channel.ChannelImgUrl;
 
                 return (
                     <div key={eIdx} className={`epg-card ${ev.Live ? 'is-live-card' : ''}`}>
@@ -23,7 +25,7 @@ const EpgTrack = ({ row, navigateYouTube }: { row: any, navigateYouTube: (url: s
                             </div>
                             <VideoCard
                                 className="primary-video"
-                                imageUrl={ev.ThumbnailUrl || ev.channel.ChannelImgUrl}
+                                imageUrl={rawImageUrl ? getFreshImage(rawImageUrl, ev.channel.LastActivityAt) : undefined}
                                 altText={ev.Title}
                                 fallbackText={ev.channel.ChannelName}
                                 isLive={ev.Live}
