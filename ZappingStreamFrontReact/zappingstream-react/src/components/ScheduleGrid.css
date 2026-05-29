@@ -67,19 +67,15 @@
 
 .epg-container {
     position: relative;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
     max-height: 75vh; /* Limita la altura de la grilla para habilitar el scroll vertical */
     padding-bottom: 20px;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
     scrollbar-color: var(--accent-blue) var(--bg-panel);
-    cursor: grab;
     display: flex;
     flex-direction: column;
-}
-
-.epg-container:active {
-    cursor: grabbing;
 }
 
 .epg-container::-webkit-scrollbar {
@@ -101,8 +97,7 @@
     display: flex;
     margin-bottom: 20px;
     position: relative;
-    width: max-content;
-    min-width: 100%;
+    width: 100%;
 }
 
 .timeline-channel-sidebar {
@@ -159,6 +154,26 @@
     display: flex;
     gap: 15px;
     align-items: stretch;
+    overflow-x: auto;
+    flex-grow: 1;
+    min-width: 0;
+    padding-bottom: 10px;
+    position: relative;
+    scroll-behavior: smooth;
+}
+
+.epg-events-track::-webkit-scrollbar {
+    height: 8px;
+}
+
+.epg-events-track::-webkit-scrollbar-track {
+    background: var(--bg-panel);
+    border-radius: 4px;
+}
+
+.epg-events-track::-webkit-scrollbar-thumb {
+    background-color: var(--accent-blue);
+    border-radius: 4px;
 }
 
 .epg-card {

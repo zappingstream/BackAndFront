@@ -4,8 +4,6 @@ import logo from '../assets/logo.png';
 interface AppHeaderProps {
     searchText: string;
     onSearchChange: (text: string) => void;
-    sortBy: string;
-    onSortChange: (sort: string) => void;
     onRefresh: () => void;
     isRefreshing: boolean;
     onShowInfo: () => void;
@@ -16,8 +14,6 @@ interface AppHeaderProps {
 export const AppHeader = ({
     searchText,
     onSearchChange,
-    sortBy,
-    onSortChange,
     onRefresh,
     isRefreshing,
     onShowInfo,
@@ -47,14 +43,6 @@ export const AppHeader = ({
                 >
                     ↻
                 </button>
-            </div>
-
-            <div className="sort-container">
-                <span className="videostatusspan sort-label">Ordenar Por </span>
-                <select className="sort-select" value={sortBy} onChange={(e) => onSortChange(e.target.value)}>
-                    <option value="actividad">Última Actividad</option>
-                    <option value="nombre">Nombre del Canal</option>
-                </select>
             </div>
 
             <div className="view-mode-container">

@@ -102,8 +102,6 @@ export default function App() {
       <AppHeader
         searchText={searchText}
         onSearchChange={setSearchText}
-        sortBy={sortBy}
-        onSortChange={setSortBy}
         onRefresh={handleRefresh}
         isRefreshing={isLoading || isFetching}
         onShowInfo={() => setShowInfoModal(true)}
@@ -123,6 +121,14 @@ export default function App() {
 
       {showAppContent && viewMode === 'cards' && (
         <>
+        <div> <br /></div>
+          <div className="sort-container">
+            <span className="videostatusspan sort-label">Ordenar Por </span>
+            <select className="sort-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+              <option value="actividad">Última Actividad</option>
+              <option value="nombre">Nombre del Canal</option>
+            </select>
+          </div>
           <ChannelCategoryRow title="Full Stream" channels={streams} {...{ expandedChannels, toggleInfo, abrirCanal, abrirCanalOnStreams, abrirCanalOnDemand, navigateYouTube }} />
           <ChannelCategoryRow title="Radio" channels={radios} {...{ expandedChannels, toggleInfo, abrirCanal, abrirCanalOnStreams, abrirCanalOnDemand, navigateYouTube }} />
           <ChannelCategoryRow title="Televisión" channels={televisions} {...{ expandedChannels, toggleInfo, abrirCanal, abrirCanalOnStreams, abrirCanalOnDemand, navigateYouTube }} />
@@ -131,9 +137,9 @@ export default function App() {
       )}
 
       {showAppContent && viewMode === 'grid' && (
-        <ScheduleGrid 
-          channels={filteredChannels} 
-          navigateYouTube={navigateYouTube} 
+        <ScheduleGrid
+          channels={filteredChannels}
+          navigateYouTube={navigateYouTube}
           expandedChannels={expandedChannels}
           toggleInfo={toggleInfo}
           abrirCanal={abrirCanal}

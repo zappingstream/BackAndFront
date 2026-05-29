@@ -3,7 +3,6 @@ import type { Channel, UpcomingVideo, ActiveVideo } from '../models/Channel';
 import { VideoCard } from './VideoCard';
 import { ChannelCard } from './ChannelCard';
 import './ScheduleGrid.css';
-import { useHorizontalScroll } from '../hooks/useHorizontalScroll';
 
 interface ScheduleGridProps {
     channels: Channel[];
@@ -26,8 +25,6 @@ export const ScheduleGrid = ({
     abrirCanalOnStreams,
     abrirCanalOnDemand,
 }: ScheduleGridProps) => {
-    const epgScrollRef = useHorizontalScroll();
-
     // Generar la lista de 15 días (-7 a +7)
     const days = useMemo(() => {
         const daysList = [];
@@ -42,27 +39,6 @@ export const ScheduleGrid = ({
     const today = useMemo(() => new Date(), []);
     const [selectedDate, setSelectedDate] = useState<Date>(today);
     const daysRailRef = useRef<HTMLDivElement>(null);
-
-    // Auto-scroll al día actual cuando carga el componente
-    useEffect(() => {
-        if (daysRailRef.current) {
-            const selectedElement = daysRailRef.current.querySelector('.selected') as HTMLElement;
-            if (selectedElement) {
-                selectedElement.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-            }
-        }
-
-        setTimeout(() => {
-            if (epgScrollRef.current) {
-                const isToday = selectedDate.toDateString() === today.toDateString();
-                if (isToday) {
-                    epgScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
-                } else {
-                    epgScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
-                }
-            }
-        }, 300);
-    }, [selectedDate, today, epgScrollRef]);
 
     const { channelRows } = useMemo(() => {
         const rows: { channel: Channel, events: any[], TotalLanes: number }[] = [];
@@ -162,6 +138,36 @@ export const ScheduleGrid = ({
         return { channelRows: rows };
     }, [channels, selectedDate]);
 
+    // Auto-scroll al día actual y alinear los vivos
+    useEffect(() => {
+        if (daysRailRef.current) {
+            const selectedElement = daysRailRef.current.querySelector('.selected') as HTMLElement;
+            if (selectedElement) {
+                selectedElement.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            }
+        }
+
+        const scrollTimeout = setTimeout(() => {
+            const tracks = document.querySelectorAll('.epg-events-track');
+            tracks.forEach(track => {
+                const liveCard = track.querySelector('.is-live-card') as HTMLElement;
+                if (liveCard) {
+                    // getBoundingClientRect es muchísimo más exacto y no depende de flexbox u offsetParents
+                    const trackRect = track.getBoundingClientRect();
+                    const cardRect = liveCard.getBoundingClientRect();
+                    
+                    // Calculamos la posición exacta combinando el scroll actual y la distancia hacia el elemento
+                    const targetScroll = track.scrollLeft + (cardRect.left - trackRect.left);
+                    track.scrollTo({ left: targetScroll, behavior: 'smooth' });
+                } else {
+                    track.scrollTo({ left: 0, behavior: 'smooth' });
+                }
+            });
+        }, 500);
+
+        return () => clearTimeout(scrollTimeout);
+    }, [selectedDate, channelRows]);
+
     const isToday = selectedDate.toDateString() === today.toDateString();
     const formatDay = (date: Date) => {
         const isToday = date.toDateString() === today.toDateString();
@@ -188,7 +194,7 @@ export const ScheduleGrid = ({
                 })}
             </div>
 
-            <div className="epg-container" ref={epgScrollRef}>
+            <div className="epg-container">
                 {!hasAnyContent ? (
                     <div className="no-events-msg">No hay transmisiones programadas para este día.</div>
                 ) : (
@@ -210,7 +216,7 @@ export const ScheduleGrid = ({
                                             const isPastEvent = ev.IsPast && !ev.Live;
 
                                             return (
-                                                <div key={eIdx} className="epg-card">
+                                                <div key={eIdx} className={`epg-card ${ev.Live ? 'is-live-card' : ''}`}>
                                                     <div className="epg-card-inner" tabIndex={0} onClick={() => navigateYouTube(`https://www.youtube.com/watch?v=${ev.VideoId}`)}>
                                                         <div className="timeline-channel-header epg-card-header">
                                                             <span className={`time-badge epg-time-badge ${isPastEvent ? 'past-time-badge' : ''}`}>{timeStr}</span>
