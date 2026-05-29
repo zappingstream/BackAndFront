@@ -14,15 +14,16 @@ const EpgTrack = ({ row, navigateYouTube }: { row: any, navigateYouTube: (url: s
             {row.events.map((ev: any, eIdx: number) => {
                 const exactDate = new Date(ev.ScheduledStartTime);
                 const timeStr = isNaN(exactDate.getTime()) ? "??:??" : exactDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
-                const isPastEvent = ev.IsPast && !ev.Live;
+                const isNotNow = !ev.Live;
                 const rawImageUrl = ev.ThumbnailUrl || ev.channel.ChannelImgUrl;
 
                 return (
                     <div key={eIdx} className={`epg-card ${ev.Live ? 'is-live-card' : ''}`}>
                         <div className="epg-card-inner" tabIndex={0} onClick={() => navigateYouTube(`https://www.youtube.com/watch?v=${ev.VideoId}`)}>
                             <div className="timeline-channel-header epg-card-header">
-                                <span className={`time-badge epg-time-badge ${isPastEvent ? 'past-time-badge' : ''}`}>{timeStr}</span>
+                                <span className={`time-badge epg-time-badge ${isNotNow ? 'inactive-time-badge' : ''}`}>{timeStr}</span>
                             </div>
+                            
                             <VideoCard
                                 className="primary-video"
                                 imageUrl={rawImageUrl ? getFreshImage(rawImageUrl, ev.channel.LastActivityAt) : undefined}
@@ -30,7 +31,7 @@ const EpgTrack = ({ row, navigateYouTube }: { row: any, navigateYouTube: (url: s
                                 fallbackText={ev.channel.ChannelName}
                                 isLive={ev.Live}
                                 isPremiere={ev.IsPremiere || ev.WasPremiere}
-                                isPast={isPastEvent}
+                                isPast={ev.IsPast && !ev.Live}
                                 isUpcoming={!ev.IsPast && !ev.Live}
                             />
                             <div className="event-info">
@@ -56,8 +57,8 @@ interface ScheduleGridProps {
     isRefreshing: boolean;
 }
 
-export const ScheduleGrid = ({ 
-    channels, 
+export const ScheduleGrid = ({
+    channels,
     navigateYouTube,
     expandedChannels,
     toggleInfo,
@@ -75,7 +76,7 @@ export const ScheduleGrid = ({
         }
         return daysList;
     }, []);
-    
+
     const today = useMemo(() => new Date(), []);
     const [selectedDate, setSelectedDate] = useState<Date>(today);
     const daysRailRef = useRef<HTMLDivElement>(null);
@@ -90,13 +91,13 @@ export const ScheduleGrid = ({
             const checkAndAddEvent = (v: UpcomingVideo | ActiveVideo, isForceLive: boolean = false) => {
                 const isLive = v.Live || isForceLive;
                 const effectiveStartTime = v.ActualStartTime || v.ScheduledStartTime || v.AddedAt;
-                
+
                 if (effectiveStartTime) {
                     const vDate = new Date(effectiveStartTime);
                     if (vDate.getFullYear() === selectedDate.getFullYear() &&
                         vDate.getMonth() === selectedDate.getMonth() &&
                         vDate.getDate() === selectedDate.getDate()) {
-                        
+
                         if (!events.some(e => e.VideoId === v.VideoId)) {
                             events.push({ ...v, ScheduledStartTime: effectiveStartTime, Live: isLive, channel });
                         }
@@ -106,17 +107,17 @@ export const ScheduleGrid = ({
 
             if (channel.Upcoming) Object.values(channel.Upcoming).filter(v => v.ScheduledStartTime).forEach(v => checkAndAddEvent(v, false));
             if (channel.Actives) Object.values(channel.Actives).forEach(v => checkAndAddEvent(v, true));
-            
+
             if (channel.Past) {
                 Object.values(channel.Past).forEach(v => {
                     const effectiveStartTime = v.ActualStartTime || v.ScheduledStartTime || (v as any).AddedAt;
                     if (!effectiveStartTime) return;
                     const vDate = new Date(effectiveStartTime);
-                    if (!isNaN(vDate.getTime()) && 
+                    if (!isNaN(vDate.getTime()) &&
                         vDate.getFullYear() === selectedDate.getFullYear() &&
                         vDate.getMonth() === selectedDate.getMonth() &&
                         vDate.getDate() === selectedDate.getDate()) {
-                        
+
                         if (!events.some(e => e.VideoId === v.VideoId)) {
                             events.push({
                                 ...v,
@@ -134,10 +135,10 @@ export const ScheduleGrid = ({
                 const alreadyExists = events.some(e => e.VideoId === channel.LiveVideoId);
                 if (!alreadyExists) {
                     let realTitle = `${channel.ChannelName} en vivo`;
-                    
+
                     const activeVid = channel.Actives ? Object.values(channel.Actives).find(v => v.VideoId === channel.LiveVideoId) : null;
                     const upcomingVid = channel.Upcoming ? Object.values(channel.Upcoming).find(v => v.VideoId === channel.LiveVideoId) : null;
-                    
+
                     if (activeVid?.Title) realTitle = activeVid.Title;
                     else if (upcomingVid?.Title) realTitle = upcomingVid.Title;
 
@@ -147,17 +148,17 @@ export const ScheduleGrid = ({
                     if (vDate.getFullYear() === selectedDate.getFullYear() &&
                         vDate.getMonth() === selectedDate.getMonth() &&
                         vDate.getDate() === selectedDate.getDate()) {
-                            
+
                         events.push({
-                        VideoId: channel.LiveVideoId,
-                        Title: realTitle,
+                            VideoId: channel.LiveVideoId,
+                            Title: realTitle,
                             ScheduledStartTime: effectiveStart,
-                        ThumbnailUrl: channel.ChannelImgLiveUrl || channel.ChannelImgUrl,
-                        AddedAt: new Date().toISOString(),
-                        Live: true,
-                        IsPremiere: channel.IsPremiere,
-                        channel
-                    });
+                            ThumbnailUrl: channel.ChannelImgLiveUrl || channel.ChannelImgUrl,
+                            AddedAt: new Date().toISOString(),
+                            Live: true,
+                            IsPremiere: channel.IsPremiere,
+                            channel
+                        });
                     }
                 }
             }
@@ -169,7 +170,7 @@ export const ScheduleGrid = ({
                     return isNaN(t) ? new Date().getTime() : t;
                 };
                 events.sort((a, b) => getTime(a.ScheduledStartTime) - getTime(b.ScheduledStartTime));
-                
+
                 rows.push({ channel, events, TotalLanes: 1 });
             }
         });
@@ -196,7 +197,7 @@ export const ScheduleGrid = ({
                     // getBoundingClientRect es muchísimo más exacto y no depende de flexbox u offsetParents
                     const trackRect = track.getBoundingClientRect();
                     const cardRect = liveCard.getBoundingClientRect();
-                    
+
                     // Calculamos la posición exacta combinando el scroll actual y la distancia hacia el elemento
                     const targetScroll = track.scrollLeft + (cardRect.left - trackRect.left);
                     track.scrollTo({ left: targetScroll, behavior: 'smooth' });
@@ -235,7 +236,18 @@ export const ScheduleGrid = ({
                 })}
             </div>
 
-            <div className="epg-container">
+            <div
+                className="epg-container"
+                onWheel={(e) => {
+                    const el = e.currentTarget;
+                    const isAtTop = el.scrollTop <= 0;
+                    const isAtBottom = Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight;
+
+                    if ((isAtTop && e.deltaY < 0) || (isAtBottom && e.deltaY > 0)) {
+                        window.scrollBy({ top: e.deltaY, behavior: 'auto' });
+                    }
+                }}
+            >
                 {!hasAnyContent ? (
                     <div className="no-events-msg">No hay transmisiones programadas para este día.</div>
                 ) : (

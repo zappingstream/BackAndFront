@@ -19,7 +19,7 @@
     position: absolute;
     bottom: 8px;
     right: 8px;
-    background-color: rgba(204, 0, 0, 0.9);
+    background-color: var(--live-badge-color);
     color: var(--text-white);
     font-size: 0.75rem;
     font-weight: bold;
@@ -51,7 +51,7 @@
     position: absolute;
     bottom: 8px;
     right: 8px;
-    background-color: rgba(0, 102, 255, 0.85);
+    background-color: var(--premiere-badge-color);
     color: var(--text-white);
     font-size: 0.75rem;
     font-weight: bold;
@@ -63,7 +63,7 @@
     box-shadow: 0 2px 5px rgba(0,0,0,0.7);
     pointer-events: none;
     z-index: 2;
-    border: 1px solid #4da6ff !important;
+    border: 1px solid var(--premiere-badge-color) !important;
 }
 
 .punto-azul {
@@ -84,28 +84,42 @@
     position: absolute;
     bottom: 8px;
     right: 8px;
-    background-color: rgba(0, 0, 0, 0.85);
+    background-color: rgba(0, 0, 0, 0.90);
     color: #bbb;
     font-size: 0.75rem;
     font-weight: bold;
     padding: 4px 8px;
     border-radius: 4px;
     z-index: 2;
-    border: 1px solid #555;
+}
+
+.badge-past.premiere {
+    border: 1px solid var(--premiere-badge-color) !important;
+}
+
+.badge-past.live {
+    border: 1px solid var(--live-badge-color);
 }
 
 .badge-upcoming {
     position: absolute;
     bottom: 8px;
     right: 8px;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(61, 61, 60, 0.753);
     color: var(--text-white);
     font-size: 0.75rem;
     font-weight: bold;
     padding: 4px 8px;
     border-radius: 4px;
     z-index: 2;
-    border: 1px solid var(--accent-blue);
+}
+
+.badge-upcoming.premiere {
+    border: 1px solid var(--premiere-badge-color) !important;
+}
+
+.badge-upcoming.live {
+    border: 1px solid var(--live-badge-color);
 }
 
 .channel-logo {

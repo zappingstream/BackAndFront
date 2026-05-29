@@ -6,6 +6,8 @@
     --text-white: #fff;
     --accent-blue: #38B6FF;
     --accent-blue-hover: #0a30b4;
+    --live-badge-color: rgba(204, 0, 0, 0.9);
+    --premiere-badge-color: #4d68ff;
 }
 
 * {
