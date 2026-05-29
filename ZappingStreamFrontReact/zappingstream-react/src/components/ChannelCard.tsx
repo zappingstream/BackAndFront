@@ -39,9 +39,8 @@ export const ChannelCard = ({
 
     const renderHeader = () => (
         <div 
-            className="card-header" 
+            className={`card-header ${isLiveGroup ? 'clickable' : ''}`} 
             onClick={isLiveGroup ? () => abrirCanal(channel) : undefined} 
-            style={{ cursor: isLiveGroup ? 'pointer' : 'default' }}
         >
             <div className="title-group">
                 {channel.ChannelImgUrl && (isExpanded || (isLiveGroup && channel.ChannelLive)) && (
@@ -58,7 +57,7 @@ export const ChannelCard = ({
         </div>
     );
 
-    const renderExpandedBody = () => (
+   const renderExpandedBody = () => (
         <>
             <VideoCard 
                 className="banner-container"
@@ -73,7 +72,7 @@ export const ChannelCard = ({
                 {channel.ChannelCity && <p className="city-tag">📍 {channel.ChannelCity}</p>}
                 <p>{channel.ChannelDescription || "Sin descripción disponible."}</p>
             </div>
-            <button className="submit-btn" style={{ marginTop: '15px' }} onClick={() => abrirCanalOnDemand(channel)}>
+            <button className="submit-btn" onClick={() => abrirCanalOnDemand(channel)}>
                 Ir al Canal (On-Demand)
             </button>
         </>
@@ -115,9 +114,8 @@ export const ChannelCard = ({
 
     const renderFooter = () => (
         <div 
-            className="last-activity-container" 
+            className={`last-activity-container ${isLiveGroup ? 'clickable' : ''}`} 
             onClick={isLiveGroup ? () => abrirCanal(channel) : undefined} 
-            style={{ cursor: isLiveGroup ? 'pointer' : 'default' }}
         >
             <span className="last-activity-text">{formatActivityDate(channel.LastActivityAt)}</span>
         </div>

@@ -54,3 +54,7 @@
     text-align: center;
     font-size: 1.5rem;
 }
+
+.info-modal .submit-btn {
+    margin-top: 20px;
+}

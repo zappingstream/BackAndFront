@@ -1,0 +1,249 @@
+.schedule-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    margin-top: 10px;
+    margin-bottom: 40px;
+}
+
+.days-rail {
+    display: flex;
+    overflow-x: auto;
+    gap: 12px;
+    padding: 10px 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-blue) var(--bg-panel);
+    border-bottom: 2px solid #333;
+}
+
+.day-btn {
+    background: var(--bg-panel);
+    border: 1px solid #444;
+    color: var(--text-white);
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    min-width: max-content;
+    text-align: center;
+    transition: all 0.2s;
+    text-transform: capitalize;
+    font-size: 0.9rem;
+}
+
+.day-btn:hover {
+    border-color: var(--accent-blue);
+}
+
+.day-btn.selected {
+    background: var(--accent-blue);
+    color: var(--bg-black);
+    font-weight: bold;
+    border-color: var(--accent-blue);
+}
+
+.back-to-now-btn {
+    background: var(--bg-dark);
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    box-shadow: 4px 0 10px rgba(0, 0, 0, 0.8);
+}
+
+.back-to-now-btn:hover {
+    background: var(--accent-blue);
+    color: var(--bg-black);
+    border-color: var(--accent-blue);
+}
+
+.no-events-msg {
+    text-align: center;
+    padding: 40px;
+    color: #888;
+    font-style: italic;
+}
+
+.epg-container {
+    position: relative;
+    overflow: auto;
+    max-height: 75vh; /* Limita la altura de la grilla para habilitar el scroll vertical */
+    padding-bottom: 20px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-blue) var(--bg-panel);
+    cursor: grab;
+    display: flex;
+    flex-direction: column;
+}
+
+.epg-container:active {
+    cursor: grabbing;
+}
+
+.epg-container::-webkit-scrollbar {
+    height: 12px;
+    width: 12px;
+}
+
+.epg-container::-webkit-scrollbar-track {
+    background: var(--bg-panel);
+    border-radius: 6px;
+}
+
+.epg-container::-webkit-scrollbar-thumb {
+    background-color: var(--accent-blue);
+    border-radius: 6px;
+}
+
+.timeline-row {
+    display: flex;
+    margin-bottom: 20px;
+    position: relative;
+    width: max-content;
+    min-width: 100%;
+}
+
+.timeline-channel-sidebar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding-top: 15px;
+    width: 100px;
+    flex-shrink: 0;
+    gap: 8px;
+    position: sticky;
+    left: 0;
+    z-index: 30;
+    background: var(--bg-black);
+    padding-right: 15px;
+}
+
+.sidebar-channel-logo {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent-blue);
+}
+
+.sidebar-channel-name {
+    font-weight: bold;
+    font-size: 0.85rem;
+    color: var(--accent-blue);
+    text-align: center;
+    word-break: break-word;
+    line-height: 1.2;
+}
+
+.time-badge {
+    background: var(--bg-panel);
+    color: var(--text-white);
+    border: 2px solid #555;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 1rem;
+    z-index: 2;
+}
+
+.past-time-badge {
+    background: var(--bg-dark);
+    color: #888;
+    border-color: #444;
+}
+
+.epg-events-track {
+    display: flex;
+    gap: 15px;
+    align-items: stretch;
+}
+
+.epg-card {
+    width: 280px;
+    height: 250px;
+    flex-shrink: 0;
+}
+
+.epg-card-inner {
+    background-color: var(--bg-dark);
+    border: 2px solid var(--accent-blue);
+    border-radius: 12px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.epg-card-inner:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 10px rgba(56, 182, 255, 0.5);
+    z-index: 5;
+    border-color: var(--text-white);
+}
+
+.epg-card .image-container {
+    width: 100% !important;
+    height: 120px;
+    flex-shrink: 0;
+    border-radius: 0;
+    border-bottom: 1px solid #333;
+}
+
+.epg-card .event-info {
+    padding: 10px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: center;
+}
+
+.timeline-channel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 10px;
+}
+
+.epg-card-header {
+    justify-content: center;
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-top: 10px;
+}
+
+.event-title {
+    font-size: 1rem;
+    color: var(--text-white);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-align: center;
+}
+
+.epg-time-badge {
+    font-size: 0.9rem;
+    padding: 4px 12px;
+}
+
+.toggle-info-btn-small {
+    padding: 2px 8px;
+    font-size: 0.8rem;
+}
+
+.expanded-overlay-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    z-index: 10000;
+}

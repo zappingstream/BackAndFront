@@ -121,3 +121,37 @@
     cursor: not-allowed;
     background-color: var(--bg-dark);
 }
+
+.sort-container {
+    text-align: center;
+}
+
+.sort-label {
+    position: static;
+    background: transparent;
+    padding: 0;
+    z-index: auto;
+}
+
+.view-mode-container {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+.view-mode-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--accent-blue);
+    background: transparent;
+    color: var(--accent-blue);
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.view-mode-btn.active {
+    background: var(--accent-blue);
+    color: var(--bg-black);
+}

@@ -7,14 +7,16 @@ interface VideoCardProps {
     fallbackText?: string;
     isLive?: boolean;
     isPremiere?: boolean;
+    isPast?: boolean;
+    isUpcoming?: boolean;
     onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
     className?: string;
     imageClassName?: string;
 }
 
-export const VideoCard = ({ imageUrl, altText, fallbackText, isLive, isPremiere, onClick, className = "", imageClassName = "channel-logo" }: VideoCardProps) => {
+export const VideoCard = ({ imageUrl, altText, fallbackText, isLive, isPremiere, isPast, isUpcoming, onClick, className = "", imageClassName = "channel-logo" }: VideoCardProps) => {
     return (
-        <div className={`image-container ${className}`} onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }}>
+        <div className={`image-container ${className} ${isPast ? "past-video-card" : ""}`} onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }}>
             {imageUrl ? (
                 <img src={imageUrl} alt={altText || ""} className={imageClassName} loading="lazy" referrerPolicy="no-referrer" />
             ) : (
@@ -28,6 +30,12 @@ export const VideoCard = ({ imageUrl, altText, fallbackText, isLive, isPremiere,
                 ) : (
                     <div className="badge-vivo"><span className="punto-rojo"></span> EN VIVO</div>
                 )
+            )}
+            {isPast && (
+                <div className="badge-past">FINALIZADO</div>
+            )}
+            {isUpcoming && !isLive && !isPast && (
+                <div className="badge-upcoming">PRÓXIMAMENTE</div>
             )}
         </div>
     );

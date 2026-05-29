@@ -9,6 +9,8 @@ interface AppHeaderProps {
     onRefresh: () => void;
     isRefreshing: boolean;
     onShowInfo: () => void;
+    viewMode: 'cards' | 'grid';
+    onViewModeChange: (mode: 'cards' | 'grid') => void;
 }
 
 export const AppHeader = ({
@@ -19,6 +21,8 @@ export const AppHeader = ({
     onRefresh,
     isRefreshing,
     onShowInfo,
+    viewMode,
+    onViewModeChange,
 }: AppHeaderProps) => {
     return (
         <div className="sticky-top-section">
@@ -45,12 +49,27 @@ export const AppHeader = ({
                 </button>
             </div>
 
-            <div style={{ textAlign: 'center' }}>
-                <span className="videostatusspan" style={{ position: 'static', background: 'transparent', padding: 0, zIndex: 'auto' }}>Ordenar Por </span>
+            <div className="sort-container">
+                <span className="videostatusspan sort-label">Ordenar Por </span>
                 <select className="sort-select" value={sortBy} onChange={(e) => onSortChange(e.target.value)}>
                     <option value="actividad">Última Actividad</option>
                     <option value="nombre">Nombre del Canal</option>
                 </select>
+            </div>
+
+            <div className="view-mode-container">
+                <button 
+                    className={`view-mode-btn ${viewMode === 'cards' ? 'active' : ''}`}
+                    onClick={() => onViewModeChange('cards')}
+                >
+                    Canales
+                </button>
+                <button 
+                    className={`view-mode-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                    onClick={() => onViewModeChange('grid')}
+                >
+                    Grilla Horaria
+                </button>
             </div>
         </div>
     );

@@ -1,38 +1,62 @@
 export interface UpcomingVideo {
   VideoId: string;
   Title: string;
-  ScheduledStartTime: string;
   ThumbnailUrl: string;
-  AddedAt: string;
-  Live: boolean;
   IsPremiere: boolean;
+  PublishedAt?: string;
+  ScheduledStartTime?: string;
+  ActualStartTime?: string;
+  ActualEndTime?: string;
+  AddedAt?: string;
+
+  Live?: boolean;
 }
 
 export interface ActiveVideo {
   VideoId: string;
   Title: string;
-  ScheduledStartTime: string;
   ThumbnailUrl: string;
-  AddedAt: string;
-  Live: boolean;
   IsPremiere: boolean;
+  PublishedAt?: string;
+  ScheduledStartTime?: string;
+  ActualStartTime?: string;
+  ActualEndTime?: string;
+  AddedAt?: string;
+
+  Live?: boolean;
+}
+
+export interface PastVideo {
+  VideoId: string;
+  Title: string;
+  ThumbnailUrl: string;
+  WasPremiere: boolean;
+
+  PublishedAt?: string;
+  ScheduledStartTime?: string;
+  ActualStartTime?: string;
+  ActualEndTime?: string;
+  EndedAt?: string;
 }
 
 export interface Channel {
   ChannelName: string;
-  ChannelDescription: string;
-  ChannelCity: string;
-  ChannelType: string;
-  ChannelLiveUrl: string;
-  ChannelBannerUrl: string;
-  ChannelImgUrl: string;
-  LastActivityAt: string; 
+
+  LastActivityAt: string;
+  ChannelDescription?: string;
+  ChannelCity?: string;
+  ChannelType?: string;
+  ChannelLiveUrl?: string;
+  ChannelImgUrl?: string;
+  ChannelBannerUrl?: string;
 
   ChannelLive: boolean;
-  ChannelImgLiveUrl: string;
-  LiveVideoId: string;
+  ChannelImgLiveUrl?: string;
+  LiveVideoId?: string;
   IsPremiere: boolean;
 
-  Upcoming: Record<string, UpcomingVideo>;
-  Actives: Record<string, ActiveVideo>;
+  Upcoming?: Record<string, UpcomingVideo>;
+  Actives?: Record<string, ActiveVideo>;
+  Past?: Record<string, PastVideo>;
+
 }

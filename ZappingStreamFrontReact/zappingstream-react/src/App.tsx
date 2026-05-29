@@ -6,6 +6,7 @@ import { AppHeader } from './components/AppHeader';
 import { InfoModal } from './components/InfoModal';
 import { ChannelCategoryRow } from './components/ChannelCategoryRow';
 import { AppFooter } from './components/AppFooter';
+import { ScheduleGrid } from './components/ScheduleGrid';
 import { StatusDisplay } from './components/StatusDisplay';
 import './global.css';
 import './App.css';
@@ -17,6 +18,7 @@ export default function App() {
   const [searchText, setSearchText] = useState("");
   const [sortBy, setSortBy] = useState("actividad");
   const [expandedChannels, setExpandedChannels] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'cards' | 'grid'>('cards');
 
   const filteredChannels = useMemo(() => {
     if (!channels) return [];
@@ -52,7 +54,8 @@ export default function App() {
       if (canal.IsPremiere && canal.LiveVideoId) {
         urlDestino = `https://www.youtube.com/watch?v=${canal.LiveVideoId}`;
       }
-      navigateYouTube(urlDestino);
+      if (urlDestino)
+        navigateYouTube(urlDestino);
     } else {
       abrirCanalOnStreams(canal);
     }
@@ -104,6 +107,8 @@ export default function App() {
         onRefresh={handleRefresh}
         isRefreshing={isLoading || isFetching}
         onShowInfo={() => setShowInfoModal(true)}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
 
       {showInfoModal && <InfoModal onClose={() => setShowInfoModal(false)} />}
@@ -116,13 +121,27 @@ export default function App() {
         searchText={searchText}
       />
 
-      {showAppContent && (
+      {showAppContent && viewMode === 'cards' && (
         <>
           <ChannelCategoryRow title="Full Stream" channels={streams} {...{ expandedChannels, toggleInfo, abrirCanal, abrirCanalOnStreams, abrirCanalOnDemand, navigateYouTube }} />
           <ChannelCategoryRow title="Radio" channels={radios} {...{ expandedChannels, toggleInfo, abrirCanal, abrirCanalOnStreams, abrirCanalOnDemand, navigateYouTube }} />
           <ChannelCategoryRow title="Televisión" channels={televisions} {...{ expandedChannels, toggleInfo, abrirCanal, abrirCanalOnStreams, abrirCanalOnDemand, navigateYouTube }} />
           <ChannelCategoryRow title="Personal" channels={personalStreams} {...{ expandedChannels, toggleInfo, abrirCanal, abrirCanalOnStreams, abrirCanalOnDemand, navigateYouTube }} />
         </>
+      )}
+
+      {showAppContent && viewMode === 'grid' && (
+        <ScheduleGrid 
+          channels={filteredChannels} 
+          navigateYouTube={navigateYouTube} 
+          expandedChannels={expandedChannels}
+          toggleInfo={toggleInfo}
+          abrirCanal={abrirCanal}
+          abrirCanalOnStreams={abrirCanalOnStreams}
+          abrirCanalOnDemand={abrirCanalOnDemand}
+          onRefresh={handleRefresh}
+          isRefreshing={isLoading || isFetching}
+        />
       )}
 
       {!isFetching && <AppFooter />}

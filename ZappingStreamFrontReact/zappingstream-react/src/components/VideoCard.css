@@ -80,6 +80,34 @@
     100% { opacity: 0.4; box-shadow: 0 0 2px #66b3ff; }
 }
 
+.badge-past {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background-color: rgba(0, 0, 0, 0.85);
+    color: #bbb;
+    font-size: 0.75rem;
+    font-weight: bold;
+    padding: 4px 8px;
+    border-radius: 4px;
+    z-index: 2;
+    border: 1px solid #555;
+}
+
+.badge-upcoming {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background-color: rgba(255, 140, 0, 0.9);
+    color: var(--text-white);
+    font-size: 0.75rem;
+    font-weight: bold;
+    padding: 4px 8px;
+    border-radius: 4px;
+    z-index: 2;
+    border: 1px solid #e67e22;
+}
+
 .channel-logo {
     max-width: 100%;
     max-height: 100%;
