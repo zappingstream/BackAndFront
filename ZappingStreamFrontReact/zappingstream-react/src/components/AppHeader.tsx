@@ -56,7 +56,7 @@ export const AppHeader = ({
                     className={`view-mode-btn ${viewMode === 'grid' ? 'active' : ''}`}
                     onClick={() => onViewModeChange('grid')}
                 >
-                    Grilla Horaria
+                    Transmisiones
                 </button>
             </div>
         </div>

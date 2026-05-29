@@ -29,7 +29,7 @@ const EpgTrack = ({ row, navigateYouTube }: { row: any, navigateYouTube: (url: s
                                 altText={ev.Title}
                                 fallbackText={ev.channel.ChannelName}
                                 isLive={ev.Live}
-                                isPremiere={ev.IsPremiere}
+                                isPremiere={ev.IsPremiere || ev.WasPremiere}
                                 isPast={isPastEvent}
                                 isUpcoming={!ev.IsPast && !ev.Live}
                             />

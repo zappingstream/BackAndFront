@@ -32,7 +32,11 @@ export const VideoCard = ({ imageUrl, altText, fallbackText, isLive, isPremiere,
                 )
             )}
             {isPast && (
-                <div className="badge-past">FINALIZADO</div>
+                isPremiere ? (
+                    <div className="badge-past">FIN ESTRENO</div>
+                ) : (
+                    <div className="badge-past">FINALIZADO</div>
+                )
             )}
             {isUpcoming && !isLive && !isPast && (
                 isPremiere ? (
