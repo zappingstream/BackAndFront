@@ -1,8 +1,46 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, type RefObject } from 'react';
 import type { Channel, UpcomingVideo, ActiveVideo } from '../models/Channel';
 import { VideoCard } from './VideoCard';
 import { ChannelCard } from './ChannelCard';
+import { useHorizontalScroll } from '../hooks/useHorizontalScroll';
 import './ScheduleGrid.css';
+
+const EpgTrack = ({ row, navigateYouTube }: { row: any, navigateYouTube: (url: string) => void }) => {
+    const trackRef = useHorizontalScroll();
+
+    return (
+        <div className="epg-events-track" ref={trackRef}>
+            {row.events.map((ev: any, eIdx: number) => {
+                const exactDate = new Date(ev.ScheduledStartTime);
+                const timeStr = isNaN(exactDate.getTime()) ? "??:??" : exactDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+                const isPastEvent = ev.IsPast && !ev.Live;
+
+                return (
+                    <div key={eIdx} className={`epg-card ${ev.Live ? 'is-live-card' : ''}`}>
+                        <div className="epg-card-inner" tabIndex={0} onClick={() => navigateYouTube(`https://www.youtube.com/watch?v=${ev.VideoId}`)}>
+                            <div className="timeline-channel-header epg-card-header">
+                                <span className={`time-badge epg-time-badge ${isPastEvent ? 'past-time-badge' : ''}`}>{timeStr}</span>
+                            </div>
+                            <VideoCard
+                                className="primary-video"
+                                imageUrl={ev.ThumbnailUrl || ev.channel.ChannelImgUrl}
+                                altText={ev.Title}
+                                fallbackText={ev.channel.ChannelName}
+                                isLive={ev.Live}
+                                isPremiere={ev.IsPremiere}
+                                isPast={isPastEvent}
+                                isUpcoming={!ev.IsPast && !ev.Live}
+                            />
+                            <div className="event-info">
+                                <div className="event-title" title={ev.Title}>{ev.Title}</div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
 
 interface ScheduleGridProps {
     channels: Channel[];
@@ -39,6 +77,7 @@ export const ScheduleGrid = ({
     const today = useMemo(() => new Date(), []);
     const [selectedDate, setSelectedDate] = useState<Date>(today);
     const daysRailRef = useRef<HTMLDivElement>(null);
+    useHorizontalScroll<HTMLDivElement>(daysRailRef as RefObject<HTMLDivElement>);
 
     const { channelRows } = useMemo(() => {
         const rows: { channel: Channel, events: any[], TotalLanes: number }[] = [];
@@ -209,36 +248,7 @@ export const ScheduleGrid = ({
                                         <span className="sidebar-channel-name">{row.channel.ChannelName}</span>
                                         <button className="toggle-info-btn toggle-info-btn-small" onClick={(e) => { e.stopPropagation(); toggleInfo(row.channel.ChannelName); }}>Info</button>
                                     </div>
-                                    <div className="epg-events-track">
-                                        {row.events.map((ev: any, eIdx: number) => {
-                                            const exactDate = new Date(ev.ScheduledStartTime);
-                                            const timeStr = isNaN(exactDate.getTime()) ? "??:??" : exactDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
-                                            const isPastEvent = ev.IsPast && !ev.Live;
-
-                                            return (
-                                                <div key={eIdx} className={`epg-card ${ev.Live ? 'is-live-card' : ''}`}>
-                                                    <div className="epg-card-inner" tabIndex={0} onClick={() => navigateYouTube(`https://www.youtube.com/watch?v=${ev.VideoId}`)}>
-                                                        <div className="timeline-channel-header epg-card-header">
-                                                            <span className={`time-badge epg-time-badge ${isPastEvent ? 'past-time-badge' : ''}`}>{timeStr}</span>
-                                                        </div>
-                                                        <VideoCard
-                                                            className="primary-video"
-                                                            imageUrl={ev.ThumbnailUrl || ev.channel.ChannelImgUrl}
-                                                            altText={ev.Title}
-                                                            fallbackText={ev.channel.ChannelName}
-                                                            isLive={ev.Live}
-                                                            isPremiere={ev.IsPremiere}
-                                                            isPast={isPastEvent}
-                                                            isUpcoming={!ev.IsPast && !ev.Live}
-                                                        />
-                                                        <div className="event-info">
-                                                            <div className="event-title" title={ev.Title}>{ev.Title}</div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                    <EpgTrack row={row} navigateYouTube={navigateYouTube} />
                                 </div>
                             );
                         })}

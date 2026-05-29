@@ -15,6 +15,12 @@
     scrollbar-width: thin;
     scrollbar-color: var(--accent-blue) var(--bg-panel);
     border-bottom: 2px solid #333;
+    cursor: grab;
+    user-select: none;
+}
+
+.days-rail:active {
+    cursor: grabbing;
 }
 
 .day-btn {
@@ -159,7 +165,12 @@
     min-width: 0;
     padding-bottom: 10px;
     position: relative;
-    scroll-behavior: smooth;
+    cursor: grab;
+    user-select: none;
+}
+
+.epg-events-track:active {
+    cursor: grabbing;
 }
 
 .epg-events-track::-webkit-scrollbar {

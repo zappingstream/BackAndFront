@@ -1,7 +1,9 @@
 import { useRef, useEffect } from 'react';
+import type {RefObject} from 'react';
 
-export const useHorizontalScroll = () => {
-    const elRef = useRef<HTMLDivElement>(null);
+export const useHorizontalScroll = <T extends HTMLElement = HTMLDivElement>(externalRef?: RefObject<T>) => {
+    const internalRef = useRef<T>(null);
+    const elRef = externalRef || internalRef;
 
     useEffect(() => {
         const el = elRef.current;
