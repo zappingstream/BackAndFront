@@ -61,36 +61,49 @@ namespace ZappingStreamingDBService
         public Dictionary<string, PastVideo> Past { get; set; }
     }
 
-    public class PastVideo 
+    public class PastVideo
     {
         public string VideoId { get; set; }
         public string Title { get; set; }
-        public string EndedAt { get; set; }
         public string ThumbnailUrl { get; set; }
-        public string ScheduledStartTime { get; set; }
-
         public bool WasPremiere { get; set; }
+
+        // Tiempos estandarizados
+        public string PublishedAt { get; set; }
+        public string ScheduledStartTime { get; set; }
+        public string ActualStartTime { get; set; }
+        public string ActualEndTime { get; set; }
+        public string EndedAt { get; set; }
     }
+
     public class UpcomingVideo
     {
         public string VideoId { get; set; }
         public string Title { get; set; }
-        public string ScheduledStartTime { get; set; }
         public string ThumbnailUrl { get; set; }
-        public string AddedAt { get; set; }
-        public bool Live { get; set; }
         public bool IsPremiere { get; set; }
+
+        // Tiempos estandarizados
+        public string PublishedAt { get; set; }
+        public string ScheduledStartTime { get; set; }
+        public string ActualStartTime { get; set; }
+        public string ActualEndTime { get; set; }
+        public string AddedAt { get; set; }
     }
 
     public class ActiveVideo
     {
         public string VideoId { get; set; }
         public string Title { get; set; }
-        public string ScheduledStartTime { get; set; }
         public string ThumbnailUrl { get; set; }
-        public string AddedAt { get; set; }
-        public bool Live { get; set; }
         public bool IsPremiere { get; set; }
+
+        // Tiempos estandarizados
+        public string PublishedAt { get; set; }
+        public string ScheduledStartTime { get; set; }
+        public string ActualStartTime { get; set; }
+        public string ActualEndTime { get; set; }
+        public string AddedAt { get; set; }
     }
 
     public class ZappingStreamingDBService : BackgroundService
