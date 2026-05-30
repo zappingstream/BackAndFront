@@ -94,11 +94,11 @@
 }
 
 .badge-past.premiere {
-    border: 1px solid color-mix(in srgb, var(--premiere-badge-color), black 70%) !important;
+    border: 1px solid color-mix(in srgb, var(--premiere-badge-color), black 50%) !important;
 }
 
 .badge-past.live {
-    border: 1px solid color-mix(in srgb, var(--live-badge-color), black 70%);
+    border: 1px solid color-mix(in srgb, var(--live-badge-color), black 50%);
 }
 
 .badge-upcoming {
