@@ -6,7 +6,7 @@
     height: 100vh;
     background-color: rgba(0, 0, 0, 0.85);
     display: flex;
-    justify-content: center;
+    justify-content: center; /* Centra horizontalmente */
     align-items: center;
     z-index: 2000;
 }
@@ -45,6 +45,7 @@
     color: #ddd;
     font-size: 1rem;
     line-height: 1.5;
+    text-align: center;
 }
 
 .close-modal-btn {

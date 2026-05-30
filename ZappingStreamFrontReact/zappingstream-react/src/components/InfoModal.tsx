@@ -11,9 +11,9 @@ export const InfoModal = ({ onClose }: InfoModalProps) => {
                 <button className="close-modal-btn" onClick={onClose}>X</button>
                 <h3 className="modal-title">¿Qué es Zapping Stream?</h3>
                 <div className="info-body">
-                    <p><strong>Zapping Stream</strong> reúne todos los canales de streaming de Argentina en un solo lugar. El objetivo principal es federalizar el contenido y hacer accesible todo lo que se está produciendo actualmente en el país.</p>
-                    <p>El sitio interactúa directo con YouTube: si se hace click en una tarjeta, el sitio enlaza directo a la transmisión en vivo. Y si en ese momento no están transmitiendo, redirige a su perfil para ver el contenido on-demand.</p>
-                    <p>Se puede buscar tanto por nombre del canal como por ciudad. Con esto buscamos darle visibilidad y alentar a los medios pequeños de comunicación a que se animen a armar su propio canal de streaming desde sus ciudades.</p>
+                    <p><strong>Zapping Stream</strong> reúne todos los canales de streaming de Argentina en un solo lugar. El objetivo es brindarle a la comunidad un punto de acceso de descubrimiento de canales y contenido por fuera del algoritmo.</p>
+                    <p>El sitio interactúa directo con YouTube: si se hace click en una tarjeta, el sitio enlaza directo al video o canal de Youtube. El sitio también permite buscar canales por nombre o ciudad.</p>
+                    <p>Se puede visualizar por canal o por transmisiones programadas. Nuestro propósito es facilitar el descubrimiento de contenido local y promover la visibilidad de todos los creadores y medios independientes.</p>
                 </div>
                 
                 <div className="modal-contact-section">
