@@ -5,8 +5,8 @@ import { removeDiacritics } from './index';
 import { AppHeader } from './components/AppHeader';
 import { InfoModal } from './components/InfoModal';
 import { ChannelCategoryRow } from './components/ChannelCategoryRow';
-import { AppFooter } from './components/AppFooter';
 import { ScheduleGrid } from './components/ScheduleGrid';
+import { AppFooter } from './components/AppFooter';
 import { StatusDisplay } from './components/StatusDisplay';
 import './global.css';
 import './App.css';
@@ -150,7 +150,13 @@ export default function App() {
         />
       )}
 
-      {!isFetching && <AppFooter />}
+      {!isFetching && (
+        <AppFooter 
+          onRefresh={handleRefresh} 
+          isRefreshing={isLoading || isFetching} 
+          onShowInfo={() => setShowInfoModal(true)} 
+        />
+      )}
 
       {expandedChannels.size > 0 && (
         <div className="fullscreen-overlay" onClick={() => setExpandedChannels(new Set())}></div>

@@ -18,12 +18,27 @@
     padding: 30px;
     width: 90vw;
     max-width: 400px;
+    max-height: 85svh;
+    overflow-y: auto;
     position: relative;
     box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 15px var(--accent-blue-hover);
 }
 
 .info-modal {
     max-width: 500px;
+}
+
+.info-modal::-webkit-scrollbar {
+    width: 8px;
+}
+
+.info-modal::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.info-modal::-webkit-scrollbar-thumb {
+    background-color: var(--accent-blue);
+    border-radius: 4px;
 }
 
 .info-body {
@@ -57,4 +72,50 @@
 
 .info-modal .submit-btn {
     margin-top: 20px;
+}
+
+.modal-contact-section {
+    margin-top: 25px;
+    margin-bottom: 15px;
+}
+
+.contact-email-text {
+    font-size: 0.95rem;
+    color: #bbb;
+    text-align: center;
+    line-height: 1.6;
+    padding: 15px;
+    background-color: var(--bg-panel);
+    border-radius: 10px;
+    border: 1px solid #333;
+}
+
+.contact-email-text a {
+    color: var(--accent-blue);
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 1.1rem;
+    display: inline-block;
+    margin-top: 5px;
+}
+
+.legal-disclaimer {
+    font-size: 0.75rem;
+    color: #777;
+    text-align: center;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.legal-disclaimer a {
+    color: var(--accent-blue);
+    text-decoration: none;
+}
+
+.legal-disclaimer a:hover {
+    color: var(--text-white);
+    text-decoration: underline;
 }

@@ -107,6 +107,7 @@ namespace ZappingStreamSyncConsole
                 }
                 else if (args.Contains("--removeRemovedPasts"))
                 {
+
                     await EjecutarLimpiezaPasts(firebaseClient, youtubeService);
                 }
                 else
@@ -336,70 +337,80 @@ namespace ZappingStreamSyncConsole
         }
 
         // ==========================================
-        // MÓDULO 2: LIMPIEZA DE PASTS
+        // MÓDULO 2: MANTENIMIENTO DE PASTS (Limpieza y Actualización de Metadata)
         // ==========================================
         static async Task EjecutarLimpiezaPasts(FirebaseClient firebase, YouTubeService yt)
         {
-            Console.WriteLine("\n=== INICIANDO LIMPIEZA DE PASTS REMOVIDOS ===");
+            Console.WriteLine("\n=== INICIANDO MANTENIMIENTO DE PASTS ===");
             var estadoActualFirebase = await firebase.Child("Channels").OnceAsync<FirebaseChannel>();
-            var videoIds = new HashSet<string>();
-
-            // 1. RECOLECTAR IDs SOLO DE PAST
-            foreach (var canal in estadoActualFirebase)
-            {
-                if (canal.Object.Past != null)
-                {
-                    foreach (var pastVideo in canal.Object.Past)
-                    {
-                        videoIds.Add(pastVideo.Key);
-                    }
-                }
-            }
-
-            if (!videoIds.Any())
-            {
-                Console.WriteLine("No hay videos en Past para evaluar. Saliendo...");
-                return;
-            }
-
-            // 2. CONSULTAR A YOUTUBE
-            var infoDeYouTube = await ConsultarVideosEnYouTube(yt, videoIds);
             var ahora = DateTimeOffset.UtcNow;
             var limite7Dias = ahora.AddDays(-7);
 
-            // 3. PROCESAR
+            var videoIdsParaConsultar = new HashSet<string>();
+            var pastsSobrevivientes = new Dictionary<string, (string Canal, PastVideo Video)>();
+
+            // 1. PODA OFFLINE Y RECOLECCIÓN
             foreach (var canal in estadoActualFirebase)
             {
                 if (canal.Object.Past == null) continue;
-
                 var canalRef = firebase.Child("Channels").Child(canal.Key);
 
                 foreach (var pastVideo in canal.Object.Past)
                 {
-                    bool eliminar = false;
-                    string razon = "";
-
-                    if (!infoDeYouTube.ContainsKey(pastVideo.Key))
+                    // Poda por tiempo (Offline, 0 cuota)
+                    if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var fechaFinalizacion) && fechaFinalizacion < limite7Dias)
                     {
-                        eliminar = true;
-                        razon = "Borrado o puesto en Privado en YouTube";
-                    }
-                    // Utilizamos el nuevo EndedAt para evaluar si ya pasaron 7 días
-                    else if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var fechaFinalizacion) && fechaFinalizacion < limite7Dias)
-                    {
-                        eliminar = true;
-                        razon = "Antigüedad > 7 días en historial";
-                    }
-
-                    if (eliminar)
-                    {
-                        Console.WriteLine($"- {canal.Key}: Removiendo de Past el video {pastVideo.Key}. Razón: {razon}");
+                        Console.WriteLine($"- {canal.Key}: Eliminando {pastVideo.Key} (> 7 días).");
                         await canalRef.Child("Past").Child(pastVideo.Key).DeleteAsync();
+                        continue;
                     }
+
+                    // Si sobrevive, lo anotamos para ir a buscar su data fresca a YouTube
+                    videoIdsParaConsultar.Add(pastVideo.Key);
+                    pastsSobrevivientes[pastVideo.Key] = (canal.Key, pastVideo.Value);
                 }
             }
 
-            Console.WriteLine("\n=== LIMPIEZA DE PASTS FINALIZADA ===");
+            if (!videoIdsParaConsultar.Any())
+            {
+                Console.WriteLine("No hay videos recientes en Past para actualizar. Saliendo...");
+                return;
+            }
+
+            // 2. CONSULTAR A YOUTUBE (Cuesta 1 punto por cada lote de 50)
+            var infoDeYouTube = await ConsultarVideosEnYouTube(yt, videoIdsParaConsultar);
+
+            // 3. ACTUALIZAR O BORRAR
+            foreach (var kvp in pastsSobrevivientes)
+            {
+                string videoId = kvp.Key;
+                string canalKey = kvp.Value.Canal;
+                var datosLocales = kvp.Value.Video;
+                var canalRef = firebase.Child("Channels").Child(canalKey);
+
+                if (!infoDeYouTube.TryGetValue(videoId, out var ytVideo))
+                {
+                    Console.WriteLine($"- {canalKey}: El VOD {videoId} ya no existe o es privado. Borrando de Firebase...");
+                    await canalRef.Child("Past").Child(videoId).DeleteAsync();
+                    continue;
+                }
+
+                // Extraer metadata fresca
+                string tituloFresco = ytVideo.Snippet?.Title ?? datosLocales.Title;
+
+                // Comparamos para no gastar escrituras en Firebase si no hace falta
+                if (tituloFresco != datosLocales.Title)
+                {
+                    Console.WriteLine($"> {canalKey}: Actualizando metadata del VOD {videoId}...");
+
+                    await canalRef.Child("Past").Child(videoId).PatchAsync(new
+                    {
+                        Title = tituloFresco
+                    });
+                }
+            }
+
+            Console.WriteLine("\n=== MANTENIMIENTO DE PASTS FINALIZADO ===");
         }
 
         // ==========================================

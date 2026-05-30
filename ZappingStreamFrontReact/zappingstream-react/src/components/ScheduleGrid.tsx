@@ -8,9 +8,27 @@ import './ScheduleGrid.css';
 
 const EpgTrack = ({ row, navigateYouTube }: { row: any, navigateYouTube: (url: string) => void }) => {
     const trackRef = useHorizontalScroll();
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(true);
+
+    const checkScroll = () => {
+        if (trackRef.current) {
+            const { scrollLeft, scrollWidth, clientWidth } = trackRef.current;
+            setCanScrollLeft(scrollLeft > 0);
+            setCanScrollRight(Math.ceil(scrollLeft) < scrollWidth - clientWidth - 1);
+        }
+    };
+
+    useEffect(() => {
+        checkScroll();
+        window.addEventListener('resize', checkScroll);
+        return () => window.removeEventListener('resize', checkScroll);
+    }, [row.events]);
 
     return (
-        <div className="epg-events-track" ref={trackRef}>
+        <div className="scroll-wrapper track-scroll-wrapper" style={{ flexGrow: 1, minWidth: 0 }}>
+            <button className={`scroll-arrow left-arrow ${!canScrollLeft ? 'disabled' : ''}`} onClick={() => trackRef.current?.scrollBy({ left: -300, behavior: 'smooth' })}>‹</button>
+            <div className="epg-events-track" ref={trackRef} onScroll={checkScroll}>
             {row.events.map((ev: any, eIdx: number) => {
                 const exactDate = new Date(ev.ScheduledStartTime);
                 const timeStr = isNaN(exactDate.getTime()) ? "??:??" : exactDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -41,6 +59,8 @@ const EpgTrack = ({ row, navigateYouTube }: { row: any, navigateYouTube: (url: s
                     </div>
                 );
             })}
+            </div>
+            <button className={`scroll-arrow right-arrow ${!canScrollRight ? 'disabled' : ''}`} onClick={() => trackRef.current?.scrollBy({ left: 300, behavior: 'smooth' })}>›</button>
         </div>
     );
 };
@@ -221,7 +241,8 @@ export const ScheduleGrid = ({
 
     return (
         <div className="schedule-container">
-            <div className="days-rail" ref={daysRailRef}>
+            <div className="days-rail-wrapper">
+                <div className="days-rail" ref={daysRailRef}>
                 {days.map((date, idx) => {
                     const isSelected = date.toDateString() === selectedDate.toDateString();
                     return (
@@ -234,19 +255,11 @@ export const ScheduleGrid = ({
                         </button>
                     );
                 })}
+                </div>
             </div>
 
             <div
                 className="epg-container"
-                onWheel={(e) => {
-                    const el = e.currentTarget;
-                    const isAtTop = el.scrollTop <= 0;
-                    const isAtBottom = Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight;
-
-                    if ((isAtTop && e.deltaY < 0) || (isAtBottom && e.deltaY > 0)) {
-                        window.scrollBy({ top: e.deltaY, behavior: 'auto' });
-                    }
-                }}
             >
                 {!hasAnyContent ? (
                     <div className="no-events-msg">No hay transmisiones programadas para este día.</div>

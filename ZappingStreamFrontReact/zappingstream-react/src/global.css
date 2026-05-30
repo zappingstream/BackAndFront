@@ -23,6 +23,8 @@ html, body {
     color: var(--text-white);
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     user-select: none;
+    overscroll-behavior: none; /* Bloquea los tirones y el refresco nativo en la PWA */
+    -webkit-tap-highlight-color: transparent;
 }
 
 /* Scrollbar global (Aplicable a todo el sitio) */
@@ -55,4 +57,79 @@ html, body {
 .submit-btn:hover:not(:disabled) {
     background-color: var(--accent-blue-hover);
     color: var(--text-white);
+}
+
+/* --- Flechas de Scroll Horizontales --- */
+.scroll-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.scroll-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    background-color: rgba(17, 17, 17, 0.85);
+    color: var(--text-white);
+    border: 2px solid var(--accent-blue);
+    border-radius: 50%;
+    font-size: 1.8rem;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    z-index: 50;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 15px rgba(0,0,0,0.8);
+    padding-bottom: 4px; /* Centrado óptico del símbolo */
+}
+
+.scroll-wrapper:hover .scroll-arrow {
+    opacity: 1;
+    visibility: visible;
+}
+
+.scroll-arrow:hover {
+    background-color: var(--accent-blue);
+    color: var(--bg-black);
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 0 15px var(--accent-blue);
+}
+
+.scroll-arrow:active {
+    transform: translateY(-50%) scale(0.9);
+}
+
+.scroll-arrow.disabled {
+    opacity: 0.2 !important;
+    cursor: default;
+    pointer-events: none;
+    border-color: #555;
+    color: #555;
+    box-shadow: none;
+}
+
+.left-arrow {
+    left: 5px;
+}
+
+.right-arrow {
+    right: 5px;
+}
+
+/* Mostrar siempre en dispositivos móviles (celulares/tablets) */
+@media (hover: none) and (pointer: coarse) {
+    .scroll-arrow {
+        opacity: 0.7;
+        visibility: visible;
+        transform: translateY(-50%) scale(0.85); /* Un poco más chicas para no tapar tanto */
+    }
+    .scroll-arrow:active {
+        opacity: 1;
+    }
 }

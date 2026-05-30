@@ -12,11 +12,14 @@
     overflow-x: auto;
     gap: 12px;
     padding: 10px 0;
-    scrollbar-width: thin;
-    scrollbar-color: var(--accent-blue) var(--bg-panel);
     border-bottom: 2px solid #333;
     cursor: grab;
     user-select: none;
+    scrollbar-width: none;
+}
+
+.days-rail::-webkit-scrollbar {
+    display: none;
 }
 
 .days-rail:active {
@@ -73,30 +76,10 @@
 
 .epg-container {
     position: relative;
-    overflow-y: auto;
     overflow-x: hidden;
-    max-height: 75vh; /* Limita la altura de la grilla para habilitar el scroll vertical */
     padding-bottom: 20px;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    scrollbar-color: var(--accent-blue) var(--bg-panel);
     display: flex;
     flex-direction: column;
-}
-
-.epg-container::-webkit-scrollbar {
-    height: 12px;
-    width: 12px;
-}
-
-.epg-container::-webkit-scrollbar-track {
-    background: var(--bg-panel);
-    border-radius: 6px;
-}
-
-.epg-container::-webkit-scrollbar-thumb {
-    background-color: var(--accent-blue);
-    border-radius: 6px;
 }
 
 .timeline-row {
@@ -156,6 +139,10 @@
     border-color: #444;
 }
 
+.track-scroll-wrapper .scroll-arrow {
+    top: 45%;
+}
+
 .epg-events-track {
     display: flex;
     gap: 15px;
@@ -167,6 +154,7 @@
     position: relative;
     cursor: grab;
     user-select: none;
+    scrollbar-width: none;
 }
 
 .epg-events-track:active {
@@ -174,17 +162,7 @@
 }
 
 .epg-events-track::-webkit-scrollbar {
-    height: 8px;
-}
-
-.epg-events-track::-webkit-scrollbar-track {
-    background: var(--bg-panel);
-    border-radius: 4px;
-}
-
-.epg-events-track::-webkit-scrollbar-thumb {
-    background-color: var(--accent-blue);
-    border-radius: 4px;
+    display: none;
 }
 
 .epg-card {

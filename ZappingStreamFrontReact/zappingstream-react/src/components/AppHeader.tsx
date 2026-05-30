@@ -14,8 +14,6 @@ interface AppHeaderProps {
 export const AppHeader = ({
     searchText,
     onSearchChange,
-    onRefresh,
-    isRefreshing,
     onShowInfo,
     viewMode,
     onViewModeChange,
@@ -35,14 +33,6 @@ export const AppHeader = ({
                     value={searchText}
                     onChange={(e) => onSearchChange(e.target.value)}
                 />
-                <button
-                    className="refresh-btn"
-                    title="Actualizar canales"
-                    onClick={onRefresh}
-                    disabled={isRefreshing}
-                >
-                    ↻
-                </button>
             </div>
 
             <div className="view-mode-container">

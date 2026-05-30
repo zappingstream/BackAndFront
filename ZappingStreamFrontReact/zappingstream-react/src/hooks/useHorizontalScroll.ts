@@ -13,6 +13,7 @@ export const useHorizontalScroll = <T extends HTMLElement = HTMLDivElement>(exte
         let isDragging = false;
         let startX: number;
         let scrollLeft: number;
+        let scrollRaf: number | null = null;
 
         const onMouseDown = (e: MouseEvent) => {
             isDown = true;
@@ -23,15 +24,16 @@ export const useHorizontalScroll = <T extends HTMLElement = HTMLDivElement>(exte
 
         const onMouseLeave = () => {
             isDown = false;
+            if (scrollRaf) cancelAnimationFrame(scrollRaf);
         };
 
         const onMouseUp = () => {
             isDown = false;
+            if (scrollRaf) cancelAnimationFrame(scrollRaf);
         };
 
         const onMouseMove = (e: MouseEvent) => {
             if (!isDown) return;
-            e.preventDefault();
             const x = e.pageX - el.offsetLeft;
             const walk = (x - startX) * 2; // Aumenta la velocidad del scroll
             
@@ -40,7 +42,14 @@ export const useHorizontalScroll = <T extends HTMLElement = HTMLDivElement>(exte
                 isDragging = true;
             }
             
-            el.scrollLeft = scrollLeft - walk;
+            if (isDragging) {
+                e.preventDefault(); // Frenamos el nativo SOLO si confirmamos el drag horizontal
+            }
+            
+            if (scrollRaf) cancelAnimationFrame(scrollRaf);
+            scrollRaf = requestAnimationFrame(() => {
+                el.scrollLeft = scrollLeft - walk;
+            });
         };
 
         const onClickCapture = (e: MouseEvent) => {
@@ -63,6 +72,7 @@ export const useHorizontalScroll = <T extends HTMLElement = HTMLDivElement>(exte
             el.removeEventListener('mouseup', onMouseUp);
             el.removeEventListener('mousemove', onMouseMove);
             el.removeEventListener('click', onClickCapture, true);
+            if (scrollRaf) cancelAnimationFrame(scrollRaf);
         };
     }, []);
 
