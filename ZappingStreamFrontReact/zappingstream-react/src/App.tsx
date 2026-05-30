@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useChannels } from './hooks/useChannels';
 import type { Channel } from './models/Channel';
 import { removeDiacritics } from './index';
@@ -19,6 +19,11 @@ export default function App() {
   const [sortBy, setSortBy] = useState("actividad");
   const [expandedChannels, setExpandedChannels] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'cards' | 'grid'>('cards');
+
+  // Restablecer el scroll al principio al cambiar de pestaña
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [viewMode]);
 
   const filteredChannels = useMemo(() => {
     if (!channels) return [];
