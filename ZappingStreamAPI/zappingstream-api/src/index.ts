@@ -13,12 +13,27 @@
 
 import { MongoClient } from "mongodb";
 
+const corsHeaders = {
+	"Access-Control-Allow-Origin": "*",
+	"Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
+	"Access-Control-Max-Age": "86400",
+};
+
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
+		if (request.method === "OPTIONS") {
+			return new Response(null, {
+				headers: {
+					...corsHeaders,
+					"Access-Control-Allow-Headers": request.headers.get("Access-Control-Request-Headers") || "",
+				},
+			});
+		}
+
 		const url = new URL(request.url);
 		if (url.pathname === "/channels") {
 			if (!env.MONGODB_URI) {
-				return Response.json({ error: "Falta la variable de entorno MONGODB_URI" }, { status: 500 });
+				return Response.json({ error: "Falta la variable de entorno MONGODB_URI" }, { status: 500, headers: corsHeaders });
 			}
 
 			const client = new MongoClient(env.MONGODB_URI);
@@ -33,14 +48,14 @@ export default {
 					.find({})
 					.toArray();
 
-				return Response.json(channels);
+				return Response.json(channels, { headers: corsHeaders });
 			} catch (error: any) {
-				return Response.json({ error: error.message }, { status: 500 });
+				return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
 			} finally {
 				// Cerramos la conexión para que Cloudflare no detecte la petición como colgada
 				ctx.waitUntil(client.close());
 			}
 		}
-		return new Response("Hello World!");
+		return new Response("Hello World!", { headers: corsHeaders });
 	},
 } satisfies ExportedHandler<Env>;
