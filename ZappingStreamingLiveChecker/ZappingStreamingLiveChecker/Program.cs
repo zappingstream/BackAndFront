@@ -83,8 +83,8 @@ namespace ZappingStreamSyncConsole
             }
 
             string ytApiKey = Environment.GetEnvironmentVariable("YOUTUBE_APIKEY") ?? "";
-            string mongoUri = Environment.GetEnvironmentVariable("MONGO_URI") ?? "";
-            string dbName = Environment.GetEnvironmentVariable("MONGO_DB_NAME") ?? "ZappingStreaming";
+            string mongoUri = Environment.GetEnvironmentVariable("MONGODB_CONNECTIONSTRING") ?? "";
+            string dbName = Environment.GetEnvironmentVariable("MONGODB_DATABASENAME") ?? "ZappingStreaming";
 
             if (string.IsNullOrEmpty(ytApiKey) || string.IsNullOrEmpty(mongoUri))
             {
