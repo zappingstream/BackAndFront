@@ -214,7 +214,7 @@ namespace ZappingStreamingDBService
                 if (infoCanalesYT.TryGetValue(stream.ChannelId, out var channelInfo))
                 {
                     string channelName = channelInfo.Snippet.Title;
-                    string mongoKey = SanitizarKey(channelName);
+                    string mongoKey = stream.ChannelId; 
 
                     bool estabaEnVivo = false;
                     string imgLiveUrlAnterior = "";
