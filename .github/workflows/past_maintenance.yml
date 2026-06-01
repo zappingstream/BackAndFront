@@ -16,5 +16,7 @@ jobs:
       env:
         YOUTUBE_APIKEY: ${{ secrets.YOUTUBE_APIKEY }}
         FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
+        MONGODB_CONNECTIONSTRING: ${{ secrets.MONGODB_CONNECTIONSTRING }}
+        MONGODB_DATABASENAME: ${{ secrets.MONGODB_DATABASENAME }}
       # ¡Fíjate en el argumento "upcoming" al final!
       run: dotnet run --project ./ZappingStreamingLiveChecker/ZappingStreamingLiveChecker/ZappingStreamingLiveChecker.csproj -- --removeRemovedPasts
