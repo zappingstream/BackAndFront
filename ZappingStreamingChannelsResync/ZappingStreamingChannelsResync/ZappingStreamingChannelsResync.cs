@@ -5,12 +5,17 @@ using Google.Apis.YouTube.v3;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Driver;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -18,28 +23,32 @@ using System.Threading.Tasks;
 
 namespace ZappingStreamingDBService
 {
+    [BsonIgnoreExtraElements]
     public class ChannelOriginItem
     {
-        [JsonProperty("title")]
+        // En Mongo, el ID de YouTube ("UC...") será nuestra clave primaria _id
+        [MongoDB.Bson.Serialization.Attributes.BsonId]
+        [BsonRepresentation(BsonType.String)]
+        [JsonPropertyName("ChannelId")]
+        public string ChannelId { get; set; }
+
         [JsonPropertyName("title")]
         public string Title { get; set; }
 
-        // SOLO Newtonsoft lo ignora (para que no suba/baje redundante en Firebase).
-        // System.Text.Json SI lo lee (por si alguna vez hace falta).
-        [Newtonsoft.Json.JsonIgnore]
-        public string ChannelId { get; set; }
-
-        [JsonProperty("city")]
         [JsonPropertyName("city")]
         public string City { get; set; }
 
-        [JsonProperty("category")]
         [JsonPropertyName("category")]
         public string Category { get; set; }
     }
 
-    public class FirebaseChannel
+    public class ZappingChannel
     {
+        // Mantengo tu lógica: el nombre sanitizado sigue siendo el _id
+        [BsonId]
+        [BsonRepresentation(BsonType.String)]
+        public string Id { get; set; }
+
         public string ChannelName { get; set; }
         public string ChannelDescription { get; set; }
         public string ChannelCity { get; set; }
@@ -49,18 +58,17 @@ namespace ZappingStreamingDBService
         public string ChannelBannerUrl { get; set; }
         public string LastActivityAt { get; set; }
 
-        // --- PROPIEDADES LEGACY (Mantenidas para compatibilidad temporal con el Front) ---
+        // --- LEGACY ---
         public bool ChannelLive { get; set; }
         public string ChannelImgLiveUrl { get; set; }
         public string LiveVideoId { get; set; }
         public bool IsPremiere { get; set; }
 
-        // --- NUEVAS COLECCIONES MULTI-ESTADO ---
+        // --- COLECCIONES ---
         public Dictionary<string, UpcomingVideo> Upcoming { get; set; }
         public Dictionary<string, ActiveVideo> Actives { get; set; }
         public Dictionary<string, PastVideo> Past { get; set; }
     }
-
     public class PastVideo
     {
         public string VideoId { get; set; }
@@ -109,7 +117,7 @@ namespace ZappingStreamingDBService
     public class ZappingStreamingDBService : BackgroundService
     {
         private readonly HttpClient _httpClient;
-        private readonly FirebaseClient _firebaseClient;
+        private readonly IMongoDatabase _database;
         private readonly YouTubeService _youtubeService;
         private readonly ILogger<ZappingStreamingDBService> _logger;
         private readonly IHostApplicationLifetime _appLifetime;
@@ -124,17 +132,14 @@ namespace ZappingStreamingDBService
             _logger = logger;
             _appLifetime = appLifetime;
 
-            string firebaseUrl = configuration["Firebase:Url"] ?? "https://zappingstreaming-default-rtdb.firebaseio.com/";
+            // Configuración de MongoDB
+            string mongoUri = configuration["MongoDB:ConnectionString"];
+            string dbName = configuration["MongoDB:DatabaseName"] ?? "ZappingStreaming";
+            var mongoClient = new MongoClient(mongoUri);
+            _database = mongoClient.GetDatabase(dbName);
+
+            // Configuración de YouTube
             string ytApiKey = configuration["YouTube:ApiKey"] ?? "";
-            string firebaseSecret = configuration["Firebase:Secret"] ?? "";
-
-            var options = new FirebaseOptions
-            {
-                AuthTokenAsyncFactory = () => Task.FromResult(firebaseSecret)
-            };
-
-            _firebaseClient = new FirebaseClient(firebaseUrl, options);
-
             _youtubeService = new YouTubeService(new BaseClientService.Initializer()
             {
                 ApiKey = ytApiKey,
@@ -149,7 +154,7 @@ namespace ZappingStreamingDBService
                 _logger.LogInformation("=== INICIANDO TAREAS DE MANTENIMIENTO ===");
 
                 await ProcesarYActualizarCanalesAsync(stoppingToken);
-                await RenovarSuscripcionesWebhooksAsync(stoppingToken);
+               // await RenovarSuscripcionesWebhooksAsync(stoppingToken);
 
                 _logger.LogInformation("=== TODAS LAS TAREAS COMPLETADAS CON ÉXITO ===");
             }
@@ -166,20 +171,12 @@ namespace ZappingStreamingDBService
 
         private async Task ProcesarYActualizarCanalesAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Obteniendo lista base de canales desde ChannelsOrigin en Firebase...");
+            _logger.LogInformation("Obteniendo lista base de canales desde MongoDB...");
 
-            // ACÁ LEEMOS COMO DICCIONARIO Y RESCATAMOS EL ID DE LA LLAVE
-            var originSnapshot = await _firebaseClient.Child("ChannelsOrigin").OnceAsync<ChannelOriginItem>();
-            var streams = originSnapshot.Select(x =>
-            {
-                var canal = x.Object;
-                canal.ChannelId = x.Key; // La magia: el nombre del nodo ("UC...") vuelve a la propiedad
-                return canal;
-            }).ToList();
-
-            var canalesValidos = streams
-                .Where(s => !string.IsNullOrEmpty(s.ChannelId) && s.ChannelId.StartsWith("UC") && s.ChannelId.Length > 2)
-                .ToList();
+            var originCollection = _database.GetCollection<ChannelOriginItem>("origin");
+            var canalesValidos = await originCollection
+                .Find(c => c.ChannelId != null && c.ChannelId.StartsWith("UC"))
+                .ToListAsync(cancellationToken);
 
             if (!canalesValidos.Any())
             {
@@ -204,32 +201,32 @@ namespace ZappingStreamingDBService
                 }
             }
 
-            _logger.LogInformation("Paso 2: Rescatando estados de stream en vivo desde Firebase...");
-            var estadoActualFirebase = await _firebaseClient.Child("Channels").OnceAsync<FirebaseChannel>();
-            var canalesExistentes = estadoActualFirebase.ToDictionary(x => x.Key, x => x.Object);
+            _logger.LogInformation("Paso 2: Rescatando estados de stream en vivo...");
 
-            var canalesParaFirebase = new Dictionary<string, FirebaseChannel>();
+            var channelsCollection = _database.GetCollection<ZappingChannel>("channels");
+            var canalesExistentesList = await channelsCollection.Find(_ => true).ToListAsync(cancellationToken);
+            var canalesExistentes = canalesExistentesList.ToDictionary(c => c.Id);
+
+            var bulkOps = new List<WriteModel<ZappingChannel>>();
 
             foreach (var stream in canalesValidos)
             {
                 if (infoCanalesYT.TryGetValue(stream.ChannelId, out var channelInfo))
                 {
                     string channelName = channelInfo.Snippet.Title;
-                    string firebaseKey = SanitizarKeyFirebase(channelName);
+                    string mongoKey = SanitizarKey(channelName);
 
-                    // Variables Legacy
                     bool estabaEnVivo = false;
                     string imgLiveUrlAnterior = "";
-                    string lastActivityAnterior = "";
+                    string lastActivityAnterior = "2000-01-01T00:00:00Z";
                     string videoLiveIdAnterior = "";
                     bool isPremiereAnterior = false;
 
-                    // Colecciones
                     Dictionary<string, UpcomingVideo> upcomingAnterior = null;
                     Dictionary<string, ActiveVideo> activesAnterior = null;
-                    Dictionary<string, PastVideo> pastAnterior = null; // <-- 1. DECLARAMOS LA VARIABLE
+                    Dictionary<string, PastVideo> pastAnterior = null;
 
-                    if (canalesExistentes.TryGetValue(firebaseKey, out var canalAnterior))
+                    if (canalesExistentes.TryGetValue(mongoKey, out var canalAnterior))
                     {
                         estabaEnVivo = canalAnterior.ChannelLive;
                         imgLiveUrlAnterior = canalAnterior.ChannelImgLiveUrl ?? "";
@@ -239,14 +236,9 @@ namespace ZappingStreamingDBService
                         videoLiveIdAnterior = canalAnterior.LiveVideoId ?? "";
                         isPremiereAnterior = canalAnterior.IsPremiere;
 
-                        // RESCATAMOS LAS COLECCIONES
                         upcomingAnterior = canalAnterior.Upcoming;
                         activesAnterior = canalAnterior.Actives;
-                        pastAnterior = canalAnterior.Past; // <-- 2. RESCATAMOS LOS VIDEOS VIEJOS
-                    }
-                    else
-                    {
-                        lastActivityAnterior = "2000-01-01T00:00:00Z";
+                        pastAnterior = canalAnterior.Past;
                     }
 
                     string imageUrl = channelInfo.Snippet.Thumbnails.High?.Url
@@ -255,8 +247,9 @@ namespace ZappingStreamingDBService
 
                     string bannerUrl = channelInfo.BrandingSettings?.Image?.BannerExternalUrl ?? "";
 
-                    canalesParaFirebase[firebaseKey] = new FirebaseChannel
+                    var canalActualizado = new ZappingChannel
                     {
+                        Id = mongoKey,
                         ChannelName = channelName,
                         ChannelLiveUrl = $"https://www.youtube.com/channel/{stream.ChannelId}/live",
                         ChannelImgUrl = imageUrl,
@@ -265,27 +258,39 @@ namespace ZappingStreamingDBService
                         ChannelCity = stream.City,
                         ChannelType = stream.Category,
 
-                        // Mantenemos las properties legacy para compatibilidad
                         ChannelLive = estabaEnVivo,
                         ChannelImgLiveUrl = imgLiveUrlAnterior,
                         LastActivityAt = lastActivityAnterior,
                         LiveVideoId = videoLiveIdAnterior,
                         IsPremiere = isPremiereAnterior,
 
-                        // DEVOLVEMOS LAS LISTAS INTACTAS AL FIREBASE
                         Upcoming = upcomingAnterior,
                         Actives = activesAnterior,
-                        Past = pastAnterior // <-- 3. LO VOLVEMOS A SUBIR INTACTO
+                        Past = pastAnterior
                     };
+
+                    // Preparamos un Upsert (Si existe lo pisa, si no, lo inserta)
+                    var upsert = new ReplaceOneModel<ZappingChannel>(
+                        Builders<ZappingChannel>.Filter.Eq(c => c.Id, mongoKey),
+                        canalActualizado)
+                    {
+                        IsUpsert = true
+                    };
+
+                    bulkOps.Add(upsert);
                 }
             }
 
-            if (canalesParaFirebase.Any())
+            if (bulkOps.Any())
             {
-                _logger.LogInformation("Paso 3: Subiendo {Cantidad} canales a Firebase...", canalesParaFirebase.Count);
+                _logger.LogInformation("Paso 3: Realizando BulkWrite de {Cantidad} canales a MongoDB...", bulkOps.Count);
+                await channelsCollection.BulkWriteAsync(bulkOps, cancellationToken: cancellationToken);
 
-                await _firebaseClient.Child("Channels").PutAsync(canalesParaFirebase);
-                await _firebaseClient.Child("Meta").PutAsync(new { LastSynced = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ") });
+                // Actualizamos la metadata
+                var metaCollection = _database.GetCollection<BsonDocument>("Metadata");
+                var metaFilter = Builders<BsonDocument>.Filter.Eq("_id", "SystemStats");
+                var metaUpdate = Builders<BsonDocument>.Update.Set("LastSynced", DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+                await metaCollection.UpdateOneAsync(metaFilter, metaUpdate, new UpdateOptions { IsUpsert = true }, cancellationToken);
 
                 _logger.LogInformation("Base de datos sincronizada.");
             }
@@ -296,16 +301,10 @@ namespace ZappingStreamingDBService
             _logger.LogInformation("Paso 4: Renovando suscripciones a Webhooks de YouTube...");
             try
             {
-                // ACÁ TAMBIÉN REPETIMOS EL PROCESO DE LECTURA Y RESCATE DE KEY
-                var originSnapshot = await _firebaseClient.Child("ChannelsOrigin").OnceAsync<ChannelOriginItem>();
-                var streams = originSnapshot.Select(x =>
-                {
-                    var canal = x.Object;
-                    canal.ChannelId = x.Key;
-                    return canal;
-                }).ToList();
-
-                var canalesValidos = streams.Where(s => !string.IsNullOrEmpty(s.ChannelId) && s.ChannelId.StartsWith("UC")).ToList();
+                var originCollection = _database.GetCollection<ChannelOriginItem>("origin");
+                var canalesValidos = await originCollection
+                    .Find(c => c.ChannelId != null && c.ChannelId.StartsWith("UC"))
+                    .ToListAsync(cancellationToken);
 
                 foreach (var str in canalesValidos)
                 {
@@ -341,8 +340,10 @@ namespace ZappingStreamingDBService
             }
         }
 
-        private string SanitizarKeyFirebase(string key)
+        private string SanitizarKey(string key)
         {
+            // MongoDB no tiene los mismos problemas con caracteres que Firebase, 
+            // pero si tu frontend espera los IDs formateados de esta manera, se mantiene.
             if (string.IsNullOrWhiteSpace(key)) return "UnknownChannel";
             return Regex.Replace(key, @"[.#$\[\]]", "").Trim();
         }
