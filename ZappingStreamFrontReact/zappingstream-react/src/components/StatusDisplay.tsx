@@ -21,7 +21,7 @@ export const StatusDisplay = ({ isFetching, isLoading, hasChannels, hasFilteredC
     if (!hasChannels) {
         return (
             <div className="status-message">
-                <p>No se encontraron canales configurados en Firebase.</p>
+                <p>No se encontraron canales configurados.</p>
             </div>
         );
     }
