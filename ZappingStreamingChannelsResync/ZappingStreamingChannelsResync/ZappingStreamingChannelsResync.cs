@@ -32,13 +32,13 @@ namespace ZappingStreamingDBService
         [JsonPropertyName("ChannelId")]
         public string ChannelId { get; set; }
 
-        [JsonPropertyName("title")]
+        [BsonElement("title")]
         public string Title { get; set; }
 
-        [JsonPropertyName("city")]
+        [BsonElement("city")]
         public string City { get; set; }
 
-        [JsonPropertyName("category")]
+        [BsonElement("category")]
         public string Category { get; set; }
     }
 
@@ -154,7 +154,7 @@ namespace ZappingStreamingDBService
                 _logger.LogInformation("=== INICIANDO TAREAS DE MANTENIMIENTO ===");
 
                 await ProcesarYActualizarCanalesAsync(stoppingToken);
-                await RenovarSuscripcionesWebhooksAsync(stoppingToken);
+               // await RenovarSuscripcionesWebhooksAsync(stoppingToken);
 
                 _logger.LogInformation("=== TODAS LAS TAREAS COMPLETADAS CON ÉXITO ===");
             }
