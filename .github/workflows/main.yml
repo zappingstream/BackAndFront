@@ -34,4 +34,6 @@ jobs:
       env:
          YouTube__ApiKey: ${{ secrets.YOUTUBE_APIKEY }}
          Firebase__Secret: ${{ secrets.FIREBASE_SECRET }}
+         MongoDB__ConnectionString: ${{ secrets.MONGODB_CONNECTIONSTRING }}
+         MongoDB__DatabaseName: ${{ secrets.MONGODB_DATABASENAME }}
       run: dotnet run --no-build
