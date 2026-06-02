@@ -14,17 +14,27 @@ namespace ZappingStreamSyncConsole
     [BsonIgnoreExtraElements]
     public class ZappingChannel
     {
+        // Mantengo tu lógica: el nombre sanitizado sigue siendo el _id
         [BsonId]
         [BsonRepresentation(BsonType.String)]
         public string Id { get; set; }
 
         public string ChannelName { get; set; }
-        public bool ChannelLive { get; set; }
-        public string LiveVideoId { get; set; }
-        public string ChannelImgLiveUrl { get; set; }
+        public string ChannelDescription { get; set; }
+        public string ChannelCity { get; set; }
+        public string ChannelType { get; set; }
+        public string ChannelLiveUrl { get; set; }
+        public string ChannelImgUrl { get; set; }
+        public string ChannelBannerUrl { get; set; }
         public string LastActivityAt { get; set; }
+
+        // --- LEGACY ---
+        public bool ChannelLive { get; set; }
+        public string ChannelImgLiveUrl { get; set; }
+        public string LiveVideoId { get; set; }
         public bool IsPremiere { get; set; }
 
+        // --- COLECCIONES ---
         public Dictionary<string, UpcomingVideo> Upcoming { get; set; }
         public Dictionary<string, ActiveVideo> Actives { get; set; }
         public Dictionary<string, PastVideo> Past { get; set; }
