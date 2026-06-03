@@ -11,6 +11,7 @@ declare namespace Cloudflare {
 }
 interface Env extends __BaseEnv_Env {
 	MONGODB_URI: string;
+	ADMIN_PASSWORD?: string;
 }
 
 // Begin runtime types

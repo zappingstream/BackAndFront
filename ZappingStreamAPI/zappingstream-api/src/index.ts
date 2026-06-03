@@ -12,6 +12,7 @@
  */
 
 import { MongoClient } from "mongodb";
+import { handleAdminRequest } from "./baseadmin";
 
 const corsHeaders = {
 	"Access-Control-Allow-Origin": "*",
@@ -31,6 +32,14 @@ export default {
 		}
 
 		const url = new URL(request.url);
+
+		// --- DELEGAR A BASEADMIN ---
+		const adminResponse = await handleAdminRequest(request, env, ctx, corsHeaders);
+		if (adminResponse) {
+			return adminResponse;
+		}
+
+		// --- RUTAS PÚBLICAS ---
 		if (url.pathname === "/channels") {
 			if (!env.MONGODB_URI) {
 				return Response.json({ error: "Falta la variable de entorno MONGODB_URI" }, { status: 500, headers: corsHeaders });
