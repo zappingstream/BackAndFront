@@ -1,7 +1,10 @@
 name: Garbage Video Collector
 
-on: # Cada 21 minutos
+on: 
   workflow_dispatch:
+  schedule:
+    # 08:00 UTC equivale a las 05:00 AM en Argentina (UTC-3)
+    - cron: '0 8 * * *'
 
 jobs:
   build-and-run:
