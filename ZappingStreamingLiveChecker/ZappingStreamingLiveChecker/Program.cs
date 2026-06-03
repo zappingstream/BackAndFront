@@ -259,7 +259,7 @@ namespace ZappingStreamSyncConsole
                             if (status == "live")
                             {
                                 Console.WriteLine($"- {canal.Id}: ¡El programado {upc.Key} está EN VIVO! Movido a Actives.");
-                                bool tieneDuracion = ytVideo.ContentDetails != null && !string.IsNullOrEmpty(ytVideo.ContentDetails.Duration);
+                                bool tieneDuracion = ytVideo.ContentDetails != null && ytVideo.ContentDetails.Duration != "P0D" && ytVideo.ContentDetails.Duration != "PT0D";
 
                                 var nuevoActivo = new ActiveVideo
                                 {
