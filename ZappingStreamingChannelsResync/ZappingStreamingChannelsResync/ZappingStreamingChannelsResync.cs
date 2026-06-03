@@ -82,6 +82,7 @@ namespace ZappingStreamingDBService
         public string ActualStartTime { get; set; }
         public string ActualEndTime { get; set; }
         public string EndedAt { get; set; }
+        public bool ToBeCut { get; set; } // <--- AGREGADO
     }
 
     public class UpcomingVideo
@@ -97,6 +98,7 @@ namespace ZappingStreamingDBService
         public string ActualStartTime { get; set; }
         public string ActualEndTime { get; set; }
         public string AddedAt { get; set; }
+        public bool ToBeCut { get; set; } // <--- AGREGADO
     }
 
     public class ActiveVideo
@@ -112,6 +114,7 @@ namespace ZappingStreamingDBService
         public string ActualStartTime { get; set; }
         public string ActualEndTime { get; set; }
         public string AddedAt { get; set; }
+        public bool ToBeCut { get; set; } // <--- AGREGADO
     }
 
     public class ZappingStreamingDBService : BackgroundService
