@@ -6,7 +6,6 @@ interface AppHeaderProps {
     onSearchChange: (text: string) => void;
     onRefresh: () => void;
     isRefreshing: boolean;
-    onShowInfo: () => void;
     viewMode: 'cards' | 'grid';
     onViewModeChange: (mode: 'cards' | 'grid') => void;
 }
@@ -14,40 +13,41 @@ interface AppHeaderProps {
 export const AppHeader = ({
     searchText,
     onSearchChange,
-    onShowInfo,
     viewMode,
     onViewModeChange,
 }: AppHeaderProps) => {
     return (
         <div className="sticky-top-section">
-            <button className="info-btn" title="¿Cómo funciona?" onClick={onShowInfo}>?</button>
-            <header className="zapping-header">
-                <img src={logo} alt="Zapping Stream" className="app-logo" />
-            </header>
+            <div className="top-bar-container">
+                <header className="zapping-header">
+                    <img src={logo} alt="Zapping Stream" className="app-logo" />
+                </header>
 
-            <div className="search-container">
-                <input
-                    type="text"
-                    className="search-input"
-                    placeholder="Buscar por canal o ciudad..."
-                    value={searchText}
-                    onChange={(e) => onSearchChange(e.target.value)}
-                />
-            </div>
-
-            <div className="view-mode-container">
-                <button 
-                    className={`view-mode-btn ${viewMode === 'cards' ? 'active' : ''}`}
-                    onClick={() => onViewModeChange('cards')}
-                >
-                    Canales
-                </button>
-                <button 
-                    className={`view-mode-btn ${viewMode === 'grid' ? 'active' : ''}`}
-                    onClick={() => onViewModeChange('grid')}
-                >
-                    Transmisiones
-                </button>
+                <div className="header-controls">
+                    <div className="search-container">
+                        <input
+                            type="text"
+                            className="search-input"
+                            placeholder="Buscar por canal o ciudad..."
+                            value={searchText}
+                            onChange={(e) => onSearchChange(e.target.value)}
+                        />
+                    </div>
+                    <div className="view-mode-container">
+                        <button 
+                            className={`view-mode-btn ${viewMode === 'cards' ? 'active' : ''}`}
+                            onClick={() => onViewModeChange('cards')}
+                        >
+                            Canales
+                        </button>
+                        <button 
+                            className={`view-mode-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                            onClick={() => onViewModeChange('grid')}
+                        >
+                            Transmisiones
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );

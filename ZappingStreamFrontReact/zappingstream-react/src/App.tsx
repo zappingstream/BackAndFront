@@ -109,7 +109,6 @@ export default function App() {
         onSearchChange={setSearchText}
         onRefresh={handleRefresh}
         isRefreshing={isLoading || isFetching}
-        onShowInfo={() => setShowInfoModal(true)}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
       />
