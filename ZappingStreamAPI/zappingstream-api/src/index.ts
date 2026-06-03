@@ -57,7 +57,37 @@ export default {
 					.find({})
 					.toArray();
 
-				return Response.json(channels, { headers: corsHeaders });
+				// Filtrar los videos de Past, Actives y Upcoming para quitar los que tienen ToBeCut: true
+				const filteredChannels = channels.map((channel: any) => {
+					// Función auxiliar para descartar los videos a cortar (soporta arreglos y objetos)
+					const filterVideos = (videoData: any) => {
+						if (!videoData || typeof videoData !== "object") return videoData;
+
+						// Si resulta ser un arreglo
+						if (Array.isArray(videoData)) {
+							return videoData.filter((video: any) => video.ToBeCut !== true && video.ToBeCut !== "true");
+						}
+
+						const filtered: any = {};
+						for (const [key, video] of Object.entries(videoData)) {
+							if ((video as any).ToBeCut !== true && (video as any).ToBeCut !== "true") {
+								filtered[key] = video;
+							}
+						}
+						return filtered;
+					};
+
+					const updated = { ...channel };
+
+					if (updated.Past) updated.Past = filterVideos(updated.Past);
+					if (updated.Actives) updated.Actives = filterVideos(updated.Actives);
+					if (updated.Upcoming) updated.Upcoming = filterVideos(updated.Upcoming);
+
+
+					return updated;
+				});
+
+				return Response.json(filteredChannels, { headers: corsHeaders });
 			} catch (error: any) {
 				return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
 			} finally {
