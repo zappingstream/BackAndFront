@@ -209,7 +209,7 @@ namespace ZappingStreamSyncConsole
                     {
                         if (!canal.Actives[kvp.Key].ToBeCut)
                         {
-                            Console.WriteLine($"- {canal.Id}: Stream {kvp.Key} fue borrado o es privado. Marcando como ToBeCut...");
+                            Console.WriteLine($"- {canal.Id}: Stream {kvp.Value.Title} fue borrado o es privado. Marcando como ToBeCut...");
                             canal.Actives[kvp.Key].ToBeCut = true;
                             huboCambios = true;
                         }
@@ -340,7 +340,7 @@ namespace ZappingStreamSyncConsole
                     if (vivosSobrevivientes.Any())
                     {
                         var streamGanador = vivosSobrevivientes.OrderBy(v => v.IsPremiere).ThenByDescending(v => v.AddedAt ?? "").First();
-                        Console.WriteLine($"> {canal.Id}: Recalculando... Portada global asignada a {streamGanador.VideoId}");
+                        Console.WriteLine($"> {canal.ChannelName}: Recalculando... Portada global asignada a {streamGanador.VideoId}");
 
                         canal.ChannelLive = true;
                         canal.LiveVideoId = streamGanador.VideoId;
@@ -350,7 +350,7 @@ namespace ZappingStreamSyncConsole
                     }
                     else
                     {
-                        Console.WriteLine($"> {canal.Id}: No quedaron streams vivos. APAGANDO CANAL.");
+                        Console.WriteLine($"> {canal.ChannelName}: No quedaron streams vivos. APAGANDO CANAL.");
 
                         canal.ChannelLive = false;
                         canal.LiveVideoId = "";
@@ -391,7 +391,7 @@ namespace ZappingStreamSyncConsole
                     // Poda por tiempo físico (Offline, 0 cuota)
                     if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var fechaFinalizacion) && fechaFinalizacion < limite7Dias)
                     {
-                        Console.WriteLine($"- {canal.Id}: Eliminando {pastVideo.Key} (> 7 días).");
+                        Console.WriteLine($"- {canal.ChannelName}: Eliminando {pastVideo.Key} (> 7 días).");
                         canal.Past.Remove(pastVideo.Key);
                         huboCambiosEnPasts = true;
                         continue;
@@ -430,7 +430,7 @@ namespace ZappingStreamSyncConsole
                 {
                     if (!datosLocales.ToBeCut)
                     {
-                        Console.WriteLine($"- {canal.Id}: El VOD {videoId} ya no existe o es privado. Marcando como ToBeCut...");
+                        Console.WriteLine($"- {canal.ChannelName}: El VOD {videoId} ya no existe o es privado. Marcando como ToBeCut...");
                         canal.Past[videoId].ToBeCut = true;
                         canalesAActualizar.Add(canal);
                     }
@@ -439,7 +439,7 @@ namespace ZappingStreamSyncConsole
 
                 if (datosLocales.ToBeCut)
                 {
-                    Console.WriteLine($"> {canal.Id}: El VOD {videoId} volvió a ser público. Restaurando (ToBeCut = false)...");
+                    Console.WriteLine($"> {canal.ChannelName}: El VOD {videoId} volvió a ser público. Restaurando (ToBeCut = false)...");
                     canal.Past[videoId].ToBeCut = false;
                     canalesAActualizar.Add(canal);
                 }
@@ -448,7 +448,7 @@ namespace ZappingStreamSyncConsole
 
                 if (tituloFresco != datosLocales.Title)
                 {
-                    Console.WriteLine($"> {canal.Id}: Actualizando metadata del VOD {videoId}...");
+                    Console.WriteLine($"> {canal.ChannelName}: Actualizando metadata del VOD {videoId}...");
                     canal.Past[videoId].Title = tituloFresco;
                     canalesAActualizar.Add(canal);
                 }
@@ -486,7 +486,7 @@ namespace ZappingStreamSyncConsole
                         string fechaRef = upc.Value.ScheduledStartTime ?? upc.Value.AddedAt ?? sysTimeNow;
                         if (upc.Value.ToBeCut && DateTimeOffset.TryParse(fechaRef, out var fecha) && fecha < limite24Horas)
                         {
-                            Console.WriteLine($"- {canal.Id}: Registro descartado en Upcoming purgado ({upc.Key}).");
+                            Console.WriteLine($"- {canal.ChannelName}: Registro descartado en Upcoming purgado ({upc.Key}).");
                             canal.Upcoming.Remove(upc.Key);
                             huboCambios = true;
                         }
@@ -501,7 +501,7 @@ namespace ZappingStreamSyncConsole
                         string fechaRef = act.Value.ActualStartTime ?? act.Value.AddedAt ?? sysTimeNow;
                         if (act.Value.ToBeCut && DateTimeOffset.TryParse(fechaRef, out var fecha) && fecha < limite24Horas)
                         {
-                            Console.WriteLine($"- {canal.Id}: Registro descartado en Actives purgado ({act.Key}).");
+                            Console.WriteLine($"- {canal.ChannelName}: Registro descartado en Actives purgado ({act.Key}).");
                             canal.Actives.Remove(act.Key);
                             huboCambios = true;
                         }
@@ -516,7 +516,7 @@ namespace ZappingStreamSyncConsole
                         string fechaRef = past.Value.EndedAt ?? sysTimeNow;
                         if (past.Value.ToBeCut && DateTimeOffset.TryParse(fechaRef, out var fecha) && fecha < limite24Horas)
                         {
-                            Console.WriteLine($"- {canal.Id}: Registro descartado en Past purgado ({past.Key}).");
+                            Console.WriteLine($"- {canal.ChannelName}: Registro descartado en Past purgado ({past.Key}).");
                             canal.Past.Remove(past.Key);
                             huboCambios = true;
                         }
