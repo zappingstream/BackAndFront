@@ -5,8 +5,22 @@ import { adminCss } from "./admin.css";
 export interface OriginRecord {
 	_id?: string;
 	category: string;
+	province?: string;
 	city: string;
 	title: string;
+}
+
+// Definimos el modelo para la nueva colección 'provinces'
+export interface ProvinceRecord {
+	_id?: string;
+	name: string;
+	cities: string[];
+}
+
+// Función para normalizar nombres (ej: "  santa    cruz " -> "Santa Cruz")
+function normalizeName(name: string): string {
+	if (!name) return "";
+	return name.trim().replace(/\s+/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 }
 
 // Función de ayuda para validar la autenticación básica
@@ -74,16 +88,18 @@ export async function handleAdminRequest(request: Request, env: Env, ctx: Execut
 				<input type="text" id="_id" placeholder="ID de Youtube (ej: UC-1NCwOfa1R...)" />
 				<input type="text" id="title" placeholder="Título (ej: Abitare)" required />
 				<input type="text" id="category" placeholder="Categoría (ej: Stream)" required />
+				<input type="text" id="province" list="provincesList" placeholder="Provincia (ej: Santa Cruz)" required />
 				<input type="text" id="city" placeholder="Ciudad (ej: Rosario)" required />
 				<button type="submit" id="submitBtn" class="submit-btn">Guardar Registro</button>
 			</form>
+			<datalist id="provincesList"></datalist>
 		</div>
 		<div class="card">
 			<h3>Registros Actuales</h3>
 			<button onclick="loadChannels()" style="margin-bottom: 15px;">Refrescar Lista</button>
 			<div class="scroll-wrapper" style="overflow-x: auto;">
 				<table id="channelsTable">
-					<thead><tr><th>ID</th><th>Título</th><th>Categoría</th><th>Ciudad</th><th>Acciones</th></tr></thead>
+					<thead><tr><th>ID</th><th>Título</th><th>Categoría</th><th>Provincia</th><th>Ciudad</th><th>Acciones</th></tr></thead>
 					<tbody></tbody>
 				</table>
 			</div>
@@ -100,6 +116,7 @@ export async function handleAdminRequest(request: Request, env: Env, ctx: Execut
 				<td>\${c._id || ''}</td>
 				<td class="col-title">\${c.title || ''}</td>
 				<td class="col-category">\${c.category || ''}</td>
+				<td class="col-province">\${c.province || ''}</td>
 				<td class="col-city">\${c.city || ''}</td>
 				<td class="col-actions">
 					<button onclick="editChannelInline('\${c._id}')">Editar</button>
@@ -115,6 +132,7 @@ export async function handleAdminRequest(request: Request, env: Env, ctx: Execut
 			const row = document.getElementById(\`row-\${id}\`);
 			row.querySelector('.col-title').innerHTML = \`<input type="text" id="edit-title-\${id}" value="\${channel.title || ''}" />\`;
 			row.querySelector('.col-category').innerHTML = \`<input type="text" id="edit-category-\${id}" value="\${channel.category || ''}" />\`;
+			row.querySelector('.col-province').innerHTML = \`<input type="text" id="edit-province-\${id}" list="provincesList" value="\${channel.province || ''}" />\`;
 			row.querySelector('.col-city').innerHTML = \`<input type="text" id="edit-city-\${id}" value="\${channel.city || ''}" />\`;
 			
 			row.querySelector('.col-actions').innerHTML = \`
@@ -126,14 +144,16 @@ export async function handleAdminRequest(request: Request, env: Env, ctx: Execut
 		async function saveChannelInline(id) {
 			const title = document.getElementById(\`edit-title-\${id}\`).value;
 			const category = document.getElementById(\`edit-category-\${id}\`).value;
+			const province = document.getElementById(\`edit-province-\${id}\`).value;
 			const city = document.getElementById(\`edit-city-\${id}\`).value;
 			
 			await fetch('/api/origin/channels', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ _id: id, title, category, city })
+				body: JSON.stringify({ _id: id, title, category, province, city })
 			});
 			loadChannels();
+			loadProvinces(); // Refrescar lista de autocompletado
 		}
 
 		async function deleteChannel(id) {
@@ -151,9 +171,10 @@ export async function handleAdminRequest(request: Request, env: Env, ctx: Execut
 			const _id = document.getElementById('_id').value;
 			const title = document.getElementById('title').value;
 			const category = document.getElementById('category').value;
+			const province = document.getElementById('province').value;
 			const city = document.getElementById('city').value;
 			
-			const payload = { title, category, city };
+			const payload = { title, category, province, city };
 			if (_id) payload._id = _id; 
 
 			await fetch('/api/origin/channels', {
@@ -163,9 +184,22 @@ export async function handleAdminRequest(request: Request, env: Env, ctx: Execut
 			});
 			e.target.reset();
 			loadChannels();
+			loadProvinces(); // Refrescar lista de autocompletado
 		});
+
+		// Carga de datalist para autocompletar Provincias
+		async function loadProvinces() {
+			const res = await fetch('/api/origin/provinces');
+			if (res.ok) {
+				const provinces = await res.json();
+				const list = document.getElementById('provincesList');
+				list.innerHTML = provinces.map(p => \`<option value="\${p.name}">\`).join('');
+			}
+		}
+
 		// Carga inicial
 		loadChannels();
+		loadProvinces();
 	</script>
 </body>
 </html>`;
@@ -174,13 +208,45 @@ export async function handleAdminRequest(request: Request, env: Env, ctx: Execut
 		});
 	}
 
-	// 2. Endpoints para interactuar con MongoDB (Base: origin)
+	// 2. Endpoint para traer la lista de provincias (Para el Autocompletado del UI)
+	if (url.pathname === "/api/origin/provinces") {
+		const client = new MongoClient(env.MONGODB_URI);
+		try {
+			await client.connect();
+			const db = client.db("zappingstreamdb");
+			const collection = db.collection<ProvinceRecord>("provinces");
+
+			if (request.method === "GET") {
+				const provinces = await collection.find({}).toArray();
+				return Response.json(provinces, { headers: corsHeaders });
+			}
+		} catch (error: any) {
+			return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
+		} finally {
+			await client.close(true);
+		}
+	}
+
+	// 3. Endpoints para interactuar con MongoDB (Base: origin)
 	if (url.pathname === "/api/origin/channels") {
 		const client = new MongoClient(env.MONGODB_URI);
 		try {
 			await client.connect();
 			const db = client.db("zappingstreamdb");
 			const collection = db.collection<OriginRecord>("origin");
+
+			// Lógica para actualizar (o crear) la provincia y guardar la ciudad
+			const upsertProvinceCity = async (provinceRaw?: string, cityRaw?: string): Promise<{ province: string; city: string }> => {
+				const province = normalizeName(provinceRaw || "");
+				const city = normalizeName(cityRaw || "");
+				if (!provinceRaw || !cityRaw) return { province, city };
+				await db.collection("provinces").updateOne(
+					{ name: province },
+					{ $addToSet: { cities: city } as any }, // Upsert del array de ciudades sin duplicados
+					{ upsert: true }
+				);
+				return { province, city };
+			};
 
 			if (request.method === "GET") {
 				const channels = await collection.find({}).toArray();
@@ -189,7 +255,22 @@ export async function handleAdminRequest(request: Request, env: Env, ctx: Execut
 
 			if (request.method === "POST") {
 				const body = await request.json() as OriginRecord;
+				
+				// Normalizamos e insertamos la provincia
+				const { province, city } = await upsertProvinceCity(body.province, body.city);
+				body.province = province;
+				body.city = city;
+				
 				const result = await collection.insertOne(body);
+
+				// Actualizar en cascada el resto de canales con la misma ciudad
+				if (city && province) {
+					await collection.updateMany(
+						{ city: city, province: { $ne: province } },
+						{ $set: { province: province } }
+					);
+				}
+
 				return Response.json({ success: true, insertedId: result.insertedId }, { status: 201, headers: corsHeaders });
 			}
 
@@ -200,7 +281,21 @@ export async function handleAdminRequest(request: Request, env: Env, ctx: Execut
 				}
 				const { _id, ...updateFields } = body;
 
+				// Normalizamos e insertamos la provincia en caso de edición
+				const { province, city } = await upsertProvinceCity(updateFields.province, updateFields.city);
+				updateFields.province = province;
+				updateFields.city = city;
+
 				const result = await collection.updateOne({ _id }, { $set: updateFields });
+
+				// Actualizar en cascada el resto de canales con la misma ciudad
+				if (updateFields.city && updateFields.province) {
+					await collection.updateMany(
+						{ city: updateFields.city, province: { $ne: updateFields.province } },
+						{ $set: { province: updateFields.province } }
+					);
+				}
+
 				return Response.json({ success: true, modifiedCount: result.modifiedCount }, { status: 200, headers: corsHeaders });
 			}
 
