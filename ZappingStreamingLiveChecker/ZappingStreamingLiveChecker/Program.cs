@@ -128,7 +128,7 @@ namespace ZappingStreamSyncConsole
                 }
                 else if (args.Contains("--removeRemovedPasts"))
                 {
-                    await EjecutarLimpiezaPasts(channelsCollection, youtubeService);
+                    await EjecutarLimpiezaPasts(channelsCollection);
                 }
                 else if (args.Contains("--purgarDescartados"))
                 {
@@ -367,20 +367,16 @@ namespace ZappingStreamSyncConsole
         }
 
         // ==========================================
-        // MÓDULO 2: MANTENIMIENTO DE PASTS
+        // MÓDULO 2: MANTENIMIENTO DE PASTS (Poda Física)
         // ==========================================
-        static async Task EjecutarLimpiezaPasts(IMongoCollection<ZappingChannel> collection, YouTubeService yt)
+        static async Task EjecutarLimpiezaPasts(IMongoCollection<ZappingChannel> collection)
         {
-            Console.WriteLine("\n=== INICIANDO MANTENIMIENTO DE PASTS EN MONGODB ===");
+            Console.WriteLine("\n=== INICIANDO PODA DE PASTS EN MONGODB ===");
             var canales = await collection.Find(_ => true).ToListAsync();
 
             var ahora = DateTimeOffset.UtcNow;
             var limite7Dias = ahora.AddDays(-7);
 
-            var videoIdsParaConsultar = new HashSet<string>();
-            var pastsSobrevivientes = new Dictionary<string, (ZappingChannel Canal, PastVideo Video)>();
-
-            // 1. PODA OFFLINE Y RECOLECCIÓN
             foreach (var canal in canales)
             {
                 if (canal.Past == null || !canal.Past.Any()) continue;
@@ -388,18 +384,13 @@ namespace ZappingStreamSyncConsole
 
                 foreach (var pastVideo in canal.Past.ToList())
                 {
-                    // Poda por tiempo físico (Offline, 0 cuota)
+                    // Poda por tiempo físico (Offline)
                     if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var fechaFinalizacion) && fechaFinalizacion < limite7Dias)
                     {
                         Console.WriteLine($"- {canal.ChannelName}: Eliminando {pastVideo.Key} (> 7 días).");
                         canal.Past.Remove(pastVideo.Key);
                         huboCambiosEnPasts = true;
-                        continue;
                     }
-
-                    // Si sobrevive la poda inicial, lo anotamos para actualizar su data
-                    videoIdsParaConsultar.Add(pastVideo.Key);
-                    pastsSobrevivientes[pastVideo.Key] = (canal, pastVideo.Value);
                 }
 
                 if (huboCambiosEnPasts)
@@ -408,58 +399,7 @@ namespace ZappingStreamSyncConsole
                 }
             }
 
-            if (!videoIdsParaConsultar.Any())
-            {
-                Console.WriteLine("No hay videos recientes en Past para actualizar. Saliendo...");
-                return;
-            }
-
-            // 2. CONSULTAR A YOUTUBE
-            var infoDeYouTube = await ConsultarVideosEnYouTube(yt, videoIdsParaConsultar);
-
-            // 3. ACTUALIZAR METADATA O APLICAR BORRADO LÓGICO
-            var canalesAActualizar = new HashSet<ZappingChannel>();
-
-            foreach (var kvp in pastsSobrevivientes)
-            {
-                string videoId = kvp.Key;
-                var canal = kvp.Value.Canal;
-                var datosLocales = kvp.Value.Video;
-
-                if (!infoDeYouTube.TryGetValue(videoId, out var ytVideo))
-                {
-                    if (!datosLocales.ToBeCut)
-                    {
-                        Console.WriteLine($"- {canal.ChannelName}: El VOD {videoId} ya no existe o es privado. Marcando como ToBeCut...");
-                        canal.Past[videoId].ToBeCut = true;
-                        canalesAActualizar.Add(canal);
-                    }
-                    continue;
-                }
-
-                if (datosLocales.ToBeCut)
-                {
-                    Console.WriteLine($"> {canal.ChannelName}: El VOD {videoId} volvió a ser público. Restaurando (ToBeCut = false)...");
-                    canal.Past[videoId].ToBeCut = false;
-                    canalesAActualizar.Add(canal);
-                }
-
-                string tituloFresco = ytVideo.Snippet?.Title ?? datosLocales.Title;
-
-                if (tituloFresco != datosLocales.Title)
-                {
-                    Console.WriteLine($"> {canal.ChannelName}: Actualizando metadata del VOD {videoId}...");
-                    canal.Past[videoId].Title = tituloFresco;
-                    canalesAActualizar.Add(canal);
-                }
-            }
-
-            foreach (var canal in canalesAActualizar)
-            {
-                await collection.ReplaceOneAsync(c => c.Id == canal.Id, canal);
-            }
-
-            Console.WriteLine("\n=== MANTENIMIENTO DE PASTS FINALIZADO ===");
+            Console.WriteLine("\n=== PODA DE PASTS FINALIZADA ===");
         }
 
         // ==========================================
