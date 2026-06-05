@@ -62,6 +62,28 @@ export default {
 				await client.close(true);
 			}
 		}
+
+		if (url.pathname === "/provinces") {
+			if (!env.MONGODB_URI) {
+				return Response.json({ error: "Falta la variable de entorno MONGODB_URI" }, { status: 500, headers: corsHeaders });
+			}
+
+			const client = new MongoClient(env.MONGODB_URI);
+
+			try {
+				await client.connect();
+				const db = client.db("zappingstreamdb");
+
+				const provinces = await db.collection("provinces").find({}).toArray();
+				return Response.json(provinces, { headers: corsHeaders });
+				
+			} catch (error: any) {
+				return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
+			} finally {
+				await client.close(true);
+			}
+		}
+
 		return new Response("Hello World!", { headers: corsHeaders });
 	},
 } satisfies ExportedHandler<Env>;
