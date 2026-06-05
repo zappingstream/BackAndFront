@@ -215,7 +215,7 @@ export async function handleAdminRequest(request: Request, env: Env, ctx: Execut
 		} catch (error: any) {
 			return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
 		} finally {
-			ctx.waitUntil(client.close());
+			await client.close(true);
 		}
 	}
 

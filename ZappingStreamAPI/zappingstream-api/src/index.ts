@@ -49,50 +49,17 @@ export default {
 
 			try {
 				await client.connect();
-
 				const db = client.db("zappingstreamdb");
 
-				const channels = await db
-					.collection("channels")
-					.find({})
-					.toArray();
-
-				// Filtrar los videos de Past, Actives y Upcoming para quitar los que tienen ToBeCut: true
-				const filteredChannels = channels.map((channel: any) => {
-					// Función auxiliar para descartar los videos a cortar (soporta arreglos y objetos)
-					const filterVideos = (videoData: any) => {
-						if (!videoData || typeof videoData !== "object") return videoData;
-
-						// Si resulta ser un arreglo
-						if (Array.isArray(videoData)) {
-							return videoData.filter((video: any) => video.ToBeCut !== true && video.ToBeCut !== "true");
-						}
-
-						const filtered: any = {};
-						for (const [key, video] of Object.entries(videoData)) {
-							if ((video as any).ToBeCut !== true && (video as any).ToBeCut !== "true") {
-								filtered[key] = video;
-							}
-						}
-						return filtered;
-					};
-
-					const updated = { ...channel };
-
-					if (updated.Past) updated.Past = filterVideos(updated.Past);
-					if (updated.Actives) updated.Actives = filterVideos(updated.Actives);
-					if (updated.Upcoming) updated.Upcoming = filterVideos(updated.Upcoming);
-
-
-					return updated;
-				});
-
-				return Response.json(filteredChannels, { headers: corsHeaders });
+				// 1. Usar un cursor en lugar de .toArray() para no saturar la memoria
+				const channels = await db.collection("channels").find({}).toArray();
+				return Response.json(channels, { headers: corsHeaders });
+				
 			} catch (error: any) {
 				return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
 			} finally {
-				// Cerramos la conexión para que Cloudflare no detecte la petición como colgada
-				ctx.waitUntil(client.close());
+				// Cerrar la conexión forzosamente para prevenir que se cuelgue
+				await client.close(true);
 			}
 		}
 		return new Response("Hello World!", { headers: corsHeaders });
