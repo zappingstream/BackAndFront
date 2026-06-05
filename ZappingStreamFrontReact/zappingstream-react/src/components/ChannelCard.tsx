@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Channel } from '../models/Channel';
 import { formatActivityDate, getFreshImage } from '../index';
 import { VideoCard } from './VideoCard';
@@ -24,9 +25,11 @@ export const ChannelCard = ({
     abrirCanalOnDemand,
     navigateYouTube,
 }: ChannelCardProps) => {
+    const [failedVideos, setFailedVideos] = useState<Set<string>>(new Set());
+
     // Filtrar los videos activos secundarios (si estamos en el grupo en vivo)
     const restoActivos = isLiveGroup && channel.Actives
-        ? Object.values(channel.Actives).filter(v => v.VideoId !== channel.LiveVideoId)
+        ? Object.values(channel.Actives).filter(v => v.VideoId !== channel.LiveVideoId && !failedVideos.has(v.VideoId))
         : [];
 
     // Ajustar el ancho según si está expandido y cuántos videos secundarios hay
@@ -89,9 +92,9 @@ export const ChannelCard = ({
                 isPremiere={channel.IsPremiere}
                 onClick={() => abrirCanal(channel)}
             />
-            {restoActivos.map((activo, aIdx) => (
+            {restoActivos.map(activo => (
                 <VideoCard
-                    key={aIdx}
+                    key={activo.VideoId}
                     className="secondary-video"
                     imageUrl={activo.ThumbnailUrl ? getFreshImage(activo.ThumbnailUrl, channel.LastActivityAt) : undefined}
                     altText={activo.Title}
@@ -99,6 +102,7 @@ export const ChannelCard = ({
                     isLive={true}
                     isPremiere={activo.IsPremiere}
                     onClick={(e) => { e.stopPropagation(); navigateYouTube(`https://www.youtube.com/watch?v=${activo.VideoId}`); }}
+                    onImageError={() => setFailedVideos(prev => new Set(prev).add(activo.VideoId))}
                 />
             ))}
         </div>

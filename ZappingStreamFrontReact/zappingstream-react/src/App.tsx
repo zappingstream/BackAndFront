@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useChannels } from './hooks/useChannels';
+import { useLocations } from './hooks/useLocations';
 import type { Channel } from './models/Channel';
 import { removeDiacritics } from './index';
 import { AppHeader } from './components/AppHeader';
@@ -13,29 +14,55 @@ import './App.css';
 
 export default function App() {
   const { channels, isLoading: isFetching, refetch } = useChannels();
+  const { cityProvinceMap, provinces } = useLocations();
   const [isLoading, setIsLoading] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [sortBy, setSortBy] = useState("actividad");
   const [expandedChannels, setExpandedChannels] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'cards' | 'grid'>('cards');
+  const [selectedProvince, setSelectedProvince] = useState<string>("");
+  const [selectedCity, setSelectedCity] = useState<string>("");
 
   // Restablecer el scroll al principio al cambiar de pestaña
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [viewMode]);
 
+  const availableCities = useMemo(() => {
+    if (!selectedProvince) {
+       return Array.from(new Set(channels.map(c => c.ChannelCity).filter(Boolean))) as string[];
+    }
+    return Array.from(new Set(
+      channels
+        .filter(c => c.ChannelCity && cityProvinceMap[c.ChannelCity] === selectedProvince)
+        .map(c => c.ChannelCity)
+    )) as string[];
+  }, [channels, selectedProvince, cityProvinceMap]);
+
   const filteredChannels = useMemo(() => {
     if (!channels) return [];
-    if (!searchText.trim()) return channels;
+    
+    let result = channels;
 
-    const cleanSearch = removeDiacritics(searchText.trim()).toLowerCase();
-    return channels.filter(c => {
-      const cleanName = removeDiacritics(c.ChannelName || "").toLowerCase();
-      const cleanCity = removeDiacritics(c.ChannelCity || "").toLowerCase();
-      return cleanName.includes(cleanSearch) || cleanCity.includes(cleanSearch);
-    });
-  }, [channels, searchText]);
+    if (selectedProvince) {
+        result = result.filter(c => c.ChannelCity && cityProvinceMap[c.ChannelCity] === selectedProvince);
+    }
+
+    if (selectedCity) {
+        result = result.filter(c => c.ChannelCity === selectedCity);
+    }
+
+    if (searchText.trim()) {
+      const cleanSearch = removeDiacritics(searchText.trim()).toLowerCase();
+      result = result.filter(c => {
+        const cleanName = removeDiacritics(c.ChannelName || "").toLowerCase();
+        return cleanName.includes(cleanSearch);
+      });
+    }
+
+    return result;
+  }, [channels, searchText, selectedProvince, selectedCity, cityProvinceMap]);
 
   const sortChannels = (source: Channel[]) => {
     return [...source].sort((a, b) => {
@@ -102,6 +129,11 @@ export default function App() {
 
   const showAppContent = !isFetching && !isLoading && channels.length > 0;
 
+  const handleProvinceChange = (prov: string) => {
+    setSelectedProvince(prov);
+    setSelectedCity("");
+  };
+
   return (
     <div className="zapping-container">
       <AppHeader
@@ -111,6 +143,12 @@ export default function App() {
         isRefreshing={isLoading || isFetching}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        selectedProvince={selectedProvince}
+        onProvinceChange={handleProvinceChange}
+        selectedCity={selectedCity}
+        onCityChange={setSelectedCity}
+        provinces={provinces}
+        cities={availableCities}
       />
 
       {showInfoModal && <InfoModal onClose={() => setShowInfoModal(false)} />}
@@ -121,6 +159,7 @@ export default function App() {
         hasChannels={channels.length > 0}
         hasFilteredChannels={filteredChannels.length > 0}
         searchText={searchText}
+        hasActiveFilters={!!(selectedProvince || selectedCity)}
       />
 
       {showAppContent && viewMode === 'cards' && (

@@ -40,8 +40,19 @@ export const ChannelCategoryRow = ({
     useEffect(() => {
         checkScroll();
         window.addEventListener('resize', checkScroll);
-        return () => window.removeEventListener('resize', checkScroll);
-    }, [channels]);
+
+        const observer = new MutationObserver(() => {
+            checkScroll();
+        });
+        if (scrollRef.current) {
+            observer.observe(scrollRef.current, { childList: true, subtree: true });
+        }
+
+        return () => {
+            window.removeEventListener('resize', checkScroll);
+            observer.disconnect();
+        };
+    }, [channels, expandedChannels]);
 
     if (!channels.length) return null;
 
@@ -65,9 +76,9 @@ export const ChannelCategoryRow = ({
                             <div className="videostatusend"></div>
                         </div>
                         <div className="cards-container">
-                                    {canalesEnVivo.map((channel, idx) => (
+                                    {canalesEnVivo.map(channel => (
                                         <ChannelCard
-                                            key={idx}
+                                            key={channel.ChannelName}
                                             channel={channel}
                                             isExpanded={isExpanded(channel.ChannelName)}
                                             isLiveGroup={true}
@@ -90,9 +101,9 @@ export const ChannelCategoryRow = ({
                             <div className="videostatusend"></div>
                         </div>
                         <div className="cards-container">
-                                    {canalesOnDemand.map((channel, idx) => (
+                                    {canalesOnDemand.map(channel => (
                                         <ChannelCard
-                                            key={idx}
+                                            key={channel.ChannelName}
                                             channel={channel}
                                             isExpanded={isExpanded(channel.ChannelName)}
                                             isLiveGroup={false}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import './VideoCard.css';
 
 interface VideoCardProps {
@@ -12,13 +12,43 @@ interface VideoCardProps {
     onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
     className?: string;
     imageClassName?: string;
+    onImageError?: () => void;
 }
 
-export const VideoCard = ({ imageUrl, altText, fallbackText, isLive, isPremiere, isPast, isUpcoming, onClick, className = "", imageClassName = "channel-logo" }: VideoCardProps) => {
+export const VideoCard = ({ imageUrl, altText, fallbackText, isLive, isPremiere, isPast, isUpcoming, onClick, className = "", imageClassName = "channel-logo", onImageError }: VideoCardProps) => {
+    const [hasError, setHasError] = useState(false);
+
+    useEffect(() => {
+        setHasError(false);
+    }, [imageUrl]);
+
+    const handleError = () => {
+        setHasError(true);
+        if (onImageError) {
+            onImageError();
+        }
+    };
+
+    const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+        const img = e.currentTarget;
+        // Detecta si YouTube devolvió su clásica imagen gris genérica (120x90) en lugar de un error 404
+        if (img.naturalWidth === 120 && img.naturalHeight === 90 && imageUrl?.includes('ytimg.com')) {
+            handleError();
+        }
+    };
+
     return (
         <div className={`image-container ${className} ${isPast ? "past-video-card" : ""}`} onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }}>
-            {imageUrl ? (
-                <img src={imageUrl} alt={altText || ""} className={imageClassName} loading="lazy" referrerPolicy="no-referrer" />
+            {imageUrl && !hasError ? (
+                <img 
+                    src={imageUrl} 
+                    alt={altText || ""} 
+                    className={imageClassName} 
+                    loading="lazy" 
+                    referrerPolicy="no-referrer" 
+                    onError={handleError}
+                    onLoad={handleLoad}
+                />
             ) : (
                 <div className="fallback-logo">
                     <span>{fallbackText ? fallbackText.substring(0, 1).toUpperCase() : "?"}</span>

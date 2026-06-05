@@ -6,9 +6,10 @@ interface StatusDisplayProps {
     hasChannels: boolean;
     hasFilteredChannels: boolean;
     searchText: string;
+    hasActiveFilters?: boolean;
 }
 
-export const StatusDisplay = ({ isFetching, isLoading, hasChannels, hasFilteredChannels, searchText }: StatusDisplayProps) => {
+export const StatusDisplay = ({ isFetching, isLoading, hasChannels, hasFilteredChannels, searchText, hasActiveFilters }: StatusDisplayProps) => {
     if (isFetching || isLoading) {
         return (
             <div className="status-message">
@@ -26,10 +27,10 @@ export const StatusDisplay = ({ isFetching, isLoading, hasChannels, hasFilteredC
         );
     }
 
-    if (!hasFilteredChannels && searchText) {
+    if (!hasFilteredChannels && (searchText || hasActiveFilters)) {
         return (
             <div className="status-message">
-                <p>No hay resultados para "{searchText}"</p>
+                <p>No hay resultados para la búsqueda actual.</p>
             </div>
         );
     }

@@ -8,8 +8,7 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://channels.zappingstream.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        changeOrigin: true
       }
     }
   }

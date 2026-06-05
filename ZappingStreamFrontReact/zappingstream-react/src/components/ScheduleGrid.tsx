@@ -6,7 +6,7 @@ import { ChannelCard } from './ChannelCard';
 import { useHorizontalScroll } from '../hooks/useHorizontalScroll';
 import './ScheduleGrid.css';
 
-const EpgTrack = ({ row, navigateYouTube }: { row: any, navigateYouTube: (url: string) => void }) => {
+const EpgTrack = ({ row, navigateYouTube, onVideoError }: { row: any, navigateYouTube: (url: string) => void, onVideoError: (videoId: string) => void }) => {
     const trackRef = useHorizontalScroll();
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(true);
@@ -22,21 +22,32 @@ const EpgTrack = ({ row, navigateYouTube }: { row: any, navigateYouTube: (url: s
     useEffect(() => {
         checkScroll();
         window.addEventListener('resize', checkScroll);
-        return () => window.removeEventListener('resize', checkScroll);
+
+        const observer = new MutationObserver(() => {
+            checkScroll();
+        });
+        if (trackRef.current) {
+            observer.observe(trackRef.current, { childList: true, subtree: true });
+        }
+
+        return () => {
+            window.removeEventListener('resize', checkScroll);
+            observer.disconnect();
+        };
     }, [row.events]);
 
     return (
         <div className="scroll-wrapper track-scroll-wrapper" style={{ flexGrow: 1, minWidth: 0 }}>
             <button className={`scroll-arrow left-arrow ${!canScrollLeft ? 'disabled' : ''}`} onClick={() => trackRef.current?.scrollBy({ left: -300, behavior: 'smooth' })}>‹</button>
             <div className="epg-events-track" ref={trackRef} onScroll={checkScroll}>
-            {row.events.map((ev: any, eIdx: number) => {
+            {row.events.map((ev: any) => {
                 const exactDate = new Date(ev.ScheduledStartTime);
                 const timeStr = isNaN(exactDate.getTime()) ? "??:??" : exactDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
                 const isNotNow = !ev.Live;
                 const rawImageUrl = ev.ThumbnailUrl || ev.channel.ChannelImgUrl;
 
                 return (
-                    <div key={eIdx} className={`epg-card ${ev.Live ? 'is-live-card' : ''}`}>
+                    <div key={ev.VideoId} className={`epg-card ${ev.Live ? 'is-live-card' : ''}`}>
                         <div className="epg-card-inner" tabIndex={0} onClick={() => navigateYouTube(`https://www.youtube.com/watch?v=${ev.VideoId}`)}>
                             <div className="timeline-channel-header epg-card-header">
                                 <span className={`time-badge epg-time-badge ${isNotNow ? 'inactive-time-badge' : ''}`}>{timeStr}</span>
@@ -51,6 +62,7 @@ const EpgTrack = ({ row, navigateYouTube }: { row: any, navigateYouTube: (url: s
                                 isPremiere={ev.IsPremiere || ev.WasPremiere}
                                 isPast={ev.IsPast && !ev.Live}
                                 isUpcoming={!ev.IsPast && !ev.Live}
+                                onImageError={() => onVideoError(ev.VideoId)}
                             />
                             <div className="event-info">
                                 <div className="event-title" title={ev.Title}>{ev.Title}</div>
@@ -101,6 +113,9 @@ export const ScheduleGrid = ({
     const [selectedDate, setSelectedDate] = useState<Date>(today);
     const daysRailRef = useRef<HTMLDivElement>(null);
     useHorizontalScroll<HTMLDivElement>(daysRailRef as RefObject<HTMLDivElement>);
+
+    const [failedVideos, setFailedVideos] = useState<Set<string>>(new Set());
+    const [failedChannels, setFailedChannels] = useState<Set<string>>(new Set());
 
     const { channelRows } = useMemo(() => {
         const rows: { channel: Channel, events: any[], TotalLanes: number }[] = [];
@@ -200,12 +215,25 @@ export const ScheduleGrid = ({
         return { channelRows: rows };
     }, [channels, selectedDate]);
 
+    // Filtramos las filas: descartamos videos fallidos y ocultamos la fila si se quedó sin videos o si el logo del canal falló
+    const visibleRows = useMemo(() => {
+        return channelRows
+            .map(row => ({
+                ...row,
+                events: row.events.filter(ev => !failedVideos.has(ev.VideoId))
+            }))
+            .filter(row => row.events.length > 0 && !failedChannels.has(row.channel.ChannelName));
+    }, [channelRows, failedVideos, failedChannels]);
+
     // Auto-scroll al día actual y alinear los vivos
     useEffect(() => {
         if (daysRailRef.current) {
             const selectedElement = daysRailRef.current.querySelector('.selected') as HTMLElement;
             if (selectedElement) {
-                selectedElement.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                // Reemplazamos scrollIntoView por un scrollTo estrictamente horizontal para evitar saltos en la pantalla
+                const container = daysRailRef.current;
+                const scrollLeft = selectedElement.offsetLeft - (container.clientWidth / 2) + (selectedElement.clientWidth / 2);
+                container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
             }
         }
 
@@ -237,7 +265,7 @@ export const ScheduleGrid = ({
         return date.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'numeric' });
     };
 
-    const hasAnyContent = channelRows.length > 0;
+    const hasAnyContent = visibleRows.length > 0;
 
     return (
         <div className="schedule-container">
@@ -265,17 +293,17 @@ export const ScheduleGrid = ({
                     <div className="no-events-msg">No hay transmisiones programadas para este día.</div>
                 ) : (
                     <>
-                        {channelRows.map((row, idx) => {
+                        {visibleRows.map((row, idx) => {
                             const isAllPast = !row.events.some((e: any) => e.Live) && (row.events.every((e: any) => e.IsPast) || (isToday && new Date(row.events[row.events.length - 1].ScheduledStartTime).getTime() < today.getTime()));
 
                             return (
                                 <div key={`row-${idx}`} className={`timeline-row ${isAllPast ? 'past-row' : ''}`}>
                                     <div className="timeline-channel-sidebar">
-                                        <img src={row.channel.ChannelImgUrl} alt={row.channel.ChannelName} className="sidebar-channel-logo" loading="lazy" />
+                                        <img src={row.channel.ChannelImgUrl} alt={row.channel.ChannelName} className="sidebar-channel-logo" loading="lazy" onError={() => setFailedChannels(prev => new Set(prev).add(row.channel.ChannelName))} />
                                         <span className="sidebar-channel-name">{row.channel.ChannelName}</span>
                                         <button className="toggle-info-btn toggle-info-btn-small" onClick={(e) => { e.stopPropagation(); toggleInfo(row.channel.ChannelName); }}>Info</button>
                                     </div>
-                                    <EpgTrack row={row} navigateYouTube={navigateYouTube} />
+                                    <EpgTrack row={row} navigateYouTube={navigateYouTube} onVideoError={(videoId) => setFailedVideos(prev => new Set(prev).add(videoId))} />
                                 </div>
                             );
                         })}
