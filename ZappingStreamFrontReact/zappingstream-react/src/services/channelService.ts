@@ -3,7 +3,7 @@ import type { Channel } from '../models/Channel';
 
 
 
-const API_URL = 'https://channels.zappingstream.com/channels';
+const API_URL = 'https://zappingstream-api.vercel.app/channels';
 
 export const getChannels = async (): Promise<Channel[]> => {
   try {

@@ -8,7 +8,7 @@ export interface ProvinceResponse {
   cities: string[];
 }
 
-const API_URL = 'https://channels.zappingstream.com/provinces';
+const API_URL = 'https://zappingstream-api.vercel.app/provinces';
 
 export const getProvinces = async (): Promise<{ cityProvinceMap: CityProvinceMap, provinces: string[] }> => {
   try {
