@@ -132,7 +132,7 @@ namespace ZappingStreamSyncConsole
                 }
                 else if (args.Contains("--purgarDescartados"))
                 {
-                    await EjecutarPurgaDescartados(channelsCollection);
+                    await EjecutarPurgaDescartados(channelsCollection, youtubeService);
                 }
                 else
                 {
@@ -403,22 +403,52 @@ namespace ZappingStreamSyncConsole
         }
 
         // ==========================================
-        // MÓDULO 3: PURGA DE DESCARTADOS (Soft Deletes > 24hs)
+        // MÓDULO 3: PURGA DE DESCARTADOS (Soft Deletes > 24hs) Y PASTS MUERTOS (> 12hs)
         // ==========================================
-        static async Task EjecutarPurgaDescartados(IMongoCollection<ZappingChannel> collection)
+        static async Task EjecutarPurgaDescartados(IMongoCollection<ZappingChannel> collection, YouTubeService yt)
         {
             Console.WriteLine("\n=== INICIANDO PURGA DE DESCARTADOS EN MONGODB ===");
             var canales = await collection.Find(_ => true).ToListAsync();
 
             var ahora = DateTimeOffset.UtcNow;
             string sysTimeNow = ahora.ToString("yyyy-MM-ddTHH:mm:ssZ");
-            var limite24Horas = ahora.AddDays(-1);
 
+            var limite24Horas = ahora.AddDays(-1);
+            var limite12Horas = ahora.AddHours(-12);
+
+            // 1. RECOLECTAR IDs DE PAST QUE TENGAN MÁS DE 12 HORAS
+            var videoIdsAVerificar = new HashSet<string>();
+            foreach (var canal in canales)
+            {
+                if (canal.Past != null)
+                {
+                    foreach (var past in canal.Past)
+                    {
+                        string fechaRef = past.Value.EndedAt ?? sysTimeNow;
+                        if (DateTimeOffset.TryParse(fechaRef, out var fecha))
+                        {
+                            // Si es un ToBeCut > 24hs, se borra seguro, no gastamos cuota de API en verificarlo
+                            if (past.Value.ToBeCut && fecha < limite24Horas) continue;
+
+                            // Si tiene más de 12 horas, lo anotamos para preguntar a YouTube
+                            if (fecha < limite12Horas)
+                            {
+                                videoIdsAVerificar.Add(past.Key);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. CONSULTAR A YOUTUBE SU ESTADO ACTUAL
+            var infoDeYouTube = await ConsultarVideosEnYouTube(yt, videoIdsAVerificar);
+
+            // 3. EJECUTAR LIMPIEZA
             foreach (var canal in canales)
             {
                 bool huboCambios = false;
 
-                // 1. Limpiar Upcoming
+                // --- Limpiar Upcoming ---
                 if (canal.Upcoming != null)
                 {
                     foreach (var upc in canal.Upcoming.ToList())
@@ -433,7 +463,7 @@ namespace ZappingStreamSyncConsole
                     }
                 }
 
-                // 2. Limpiar Actives
+                // --- Limpiar Actives ---
                 if (canal.Actives != null)
                 {
                     foreach (var act in canal.Actives.ToList())
@@ -448,28 +478,49 @@ namespace ZappingStreamSyncConsole
                     }
                 }
 
-                // 3. Limpiar Pasts
+                // --- Limpiar Pasts ---
                 if (canal.Past != null)
                 {
                     foreach (var past in canal.Past.ToList())
                     {
                         string fechaRef = past.Value.EndedAt ?? sysTimeNow;
-                        if (past.Value.ToBeCut && DateTimeOffset.TryParse(fechaRef, out var fecha) && fecha < limite24Horas)
+
+                        if (DateTimeOffset.TryParse(fechaRef, out var fecha))
                         {
-                            Console.WriteLine($"- {canal.ChannelName}: Registro descartado en Past purgado ({past.Key}).");
-                            canal.Past.Remove(past.Key);
-                            huboCambios = true;
+                            // Condición A: Es un Soft Delete y pasaron más de 24 horas (Eliminación forzada)
+                            if (past.Value.ToBeCut && fecha < limite24Horas)
+                            {
+                                Console.WriteLine($"- {canal.ChannelName}: Registro descartado en Past purgado ({past.Key}).");
+                                canal.Past.Remove(past.Key);
+                                huboCambios = true;
+                            }
+                            // Condición B: Tiene más de 12 horas. Lo borramos SOLO SI ya no existe en YouTube.
+                            else if (fecha < limite12Horas)
+                            {
+                                if (!infoDeYouTube.ContainsKey(past.Key))
+                                {
+                                    Console.WriteLine($"- {canal.ChannelName}: Registro Past ({past.Key}) eliminado. Superó 12hs y YA NO ESTÁ en YouTube.");
+                                    canal.Past.Remove(past.Key);
+                                    huboCambios = true;
+                                }
+                                else
+                                {
+                                    // Opcional: Console.WriteLine para debug si quieres ver los que sobreviven
+                                    // Console.WriteLine($"- {canal.ChannelName}: Past ({past.Key}) > 12hs conservado. Sigue público.");
+                                }
+                            }
                         }
                     }
                 }
 
+                // Guardar cambios si los hubo en este canal
                 if (huboCambios)
                 {
                     await collection.ReplaceOneAsync(c => c.Id == canal.Id, canal);
                 }
             }
 
-            Console.WriteLine("\n=== PURGA DE DESCARTADOS FINALIZADA ===");
+            Console.WriteLine("\n=== PURGA DE DESCARTADOS Y PASTS FINALIZADA ===");
         }
 
         // ==========================================
