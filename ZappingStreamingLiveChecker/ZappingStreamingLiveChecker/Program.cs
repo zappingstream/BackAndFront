@@ -209,7 +209,7 @@ namespace ZappingStreamSyncConsole
                     {
                         if (!canal.Actives[kvp.Key].ToBeCut)
                         {
-                            Console.WriteLine($"- {canal.Id}: Stream {kvp.Value.Title} fue borrado o es privado. Marcando como ToBeCut...");
+                            Console.WriteLine($"- {canal.ChannelName}: Stream {kvp.Value.Title} fue borrado o es privado. Marcando como ToBeCut...");
                             canal.Actives[kvp.Key].ToBeCut = true;
                             huboCambios = true;
                         }
@@ -218,14 +218,14 @@ namespace ZappingStreamSyncConsole
                     {
                         if (canal.Actives[kvp.Key].ToBeCut)
                         {
-                            Console.WriteLine($"- {canal.Id}: El stream {kvp.Key} volvió a ser público. Restaurando (ToBeCut = false)...");
+                            Console.WriteLine($"- {canal.ChannelName}: El stream {kvp.Key} volvió a ser público. Restaurando (ToBeCut = false)...");
                             canal.Actives[kvp.Key].ToBeCut = false;
                             huboCambios = true;
                         }
 
                         if (ytVideo.Snippet?.LiveBroadcastContent != "live")
                         {
-                            Console.WriteLine($"- {canal.Id}: Stream {kvp.Key} finalizó. Moviendo a Past...");
+                            Console.WriteLine($"- {canal.ChannelName}: Stream {kvp.Key} finalizó. Moviendo a Past...");
 
                             canal.Past[kvp.Key] = new PastVideo
                             {
@@ -262,7 +262,7 @@ namespace ZappingStreamSyncConsole
                     {
                         if (!canal.Upcoming[upc.Key].ToBeCut)
                         {
-                            Console.WriteLine($"- {canal.Id}: El programado {upc.Key} fue cancelado/borrado. Marcando como ToBeCut...");
+                            Console.WriteLine($"- {canal.ChannelName}: El programado {upc.Key} fue cancelado/borrado. Marcando como ToBeCut...");
                             canal.Upcoming[upc.Key].ToBeCut = true;
                             huboCambios = true;
                         }
@@ -271,7 +271,7 @@ namespace ZappingStreamSyncConsole
                     {
                         if (canal.Upcoming[upc.Key].ToBeCut)
                         {
-                            Console.WriteLine($"- {canal.Id}: El programado {upc.Key} volvió a ser público. Restaurando (ToBeCut = false)...");
+                            Console.WriteLine($"- {canal.ChannelName}: El programado {upc.Key} volvió a ser público. Restaurando (ToBeCut = false)...");
                             canal.Upcoming[upc.Key].ToBeCut = false;
                             huboCambios = true;
                         }
@@ -284,7 +284,7 @@ namespace ZappingStreamSyncConsole
 
                         if (status == "live")
                         {
-                            Console.WriteLine($"- {canal.Id}: ¡El programado {upc.Key} está EN VIVO! Movido a Actives.");
+                            Console.WriteLine($"- {canal.ChannelName}: ¡El programado {upc.Key} está EN VIVO! Movido a Actives.");
                             bool tieneDuracion = ytVideo.ContentDetails != null && ytVideo.ContentDetails.Duration != "P0D" && ytVideo.ContentDetails.Duration != "PT0D";
 
                             var nuevoActivo = new ActiveVideo
@@ -307,7 +307,7 @@ namespace ZappingStreamSyncConsole
                         }
                         else if (status == "none")
                         {
-                            Console.WriteLine($"- {canal.Id}: El programado {upc.Key} es un video normal ahora. Moviendo a Past...");
+                            Console.WriteLine($"- {canal.ChannelName}: El programado {upc.Key} es un video normal ahora. Moviendo a Past...");
 
                             canal.Past[upc.Key] = new PastVideo
                             {
@@ -327,7 +327,7 @@ namespace ZappingStreamSyncConsole
                         }
                         else if (status == "upcoming" && DateTimeOffset.TryParse(upc.Value.ScheduledStartTime, out var scheduledTime) && (ahora - scheduledTime).TotalHours > 24)
                         {
-                            Console.WriteLine($"- {canal.Id}: El programado {upc.Key} superó las 24hs colgado. Eliminándolo definitivamente...");
+                            Console.WriteLine($"- {canal.ChannelName}: El programado {upc.Key} superó las 24hs colgado. Eliminándolo definitivamente...");
                             canal.Upcoming.Remove(upc.Key);
                             huboCambios = true;
                         }
