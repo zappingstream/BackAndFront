@@ -292,12 +292,14 @@ namespace ZappingStreamSyncConsole
                                 VideoId = upc.Value.VideoId,
                                 Title = ytVideo.Snippet?.Title ?? upc.Value.Title,
                                 ThumbnailUrl = upc.Value.ThumbnailUrl,
-                                IsPremiere = tieneDuracion,
+                                // PARCHE 1: Rescatamos el booleano si ya venía como estreno
+                                IsPremiere = upc.Value.IsPremiere || tieneDuracion,
                                 PublishedAt = publishedAt ?? upc.Value.PublishedAt,
                                 ScheduledStartTime = scheduledStart ?? upc.Value.ScheduledStartTime,
-                                ActualStartTime = actualStart ?? sysTimeNow,
+                                // PARCHE 2: Mantenemos las fechas originales
+                                ActualStartTime = actualStart ?? upc.Value.ActualStartTime ?? sysTimeNow,
                                 ActualEndTime = actualEnd,
-                                AddedAt = sysTimeNow
+                                AddedAt = upc.Value.AddedAt ?? sysTimeNow
                             };
 
                             canal.Actives[upc.Key] = nuevoActivo;
@@ -325,11 +327,23 @@ namespace ZappingStreamSyncConsole
                             canal.Upcoming.Remove(upc.Key);
                             huboCambios = true;
                         }
-                        else if (status == "upcoming" && DateTimeOffset.TryParse(upc.Value.ScheduledStartTime, out var scheduledTime) && (ahora - scheduledTime).TotalHours > 24)
+                        else if (status == "upcoming")
                         {
-                            Console.WriteLine($"- {canal.ChannelName}: El programado {upc.Key} superó las 24hs colgado. Eliminándolo definitivamente...");
-                            canal.Upcoming.Remove(upc.Key);
-                            huboCambios = true;
+                            // PARCHE 3: Interceptar cambios de horario silenciosos
+                            if (!string.IsNullOrEmpty(scheduledStart) && scheduledStart != upc.Value.ScheduledStartTime)
+                            {
+                                Console.WriteLine($"- {canal.ChannelName}: Cambio de horario en {upc.Key}. De {upc.Value.ScheduledStartTime} a {scheduledStart}.");
+                                canal.Upcoming[upc.Key].ScheduledStartTime = scheduledStart;
+                                huboCambios = true;
+                            }
+
+                            // Control de limpieza de colgados (> 24hs)
+                            if (DateTimeOffset.TryParse(canal.Upcoming[upc.Key].ScheduledStartTime, out var scheduledTime) && (ahora - scheduledTime).TotalHours > 24)
+                            {
+                                Console.WriteLine($"- {canal.ChannelName}: El programado {upc.Key} superó las 24hs colgado. Eliminándolo definitivamente...");
+                                canal.Upcoming.Remove(upc.Key);
+                                huboCambios = true;
+                            }
                         }
                     }
                 }
