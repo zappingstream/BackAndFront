@@ -41,8 +41,24 @@ const EpgTrack = ({ row, navigateYouTube, onVideoError }: { row: any, navigateYo
             <button className={`scroll-arrow left-arrow ${!canScrollLeft ? 'disabled' : ''}`} onClick={() => trackRef.current?.scrollBy({ left: -300, behavior: 'smooth' })}>‹</button>
             <div className="epg-events-track" ref={trackRef} onScroll={checkScroll}>
             {row.events.map((ev: any) => {
-                const exactDate = new Date(ev.ScheduledStartTime);
-                const timeStr = isNaN(exactDate.getTime()) ? "??:??" : exactDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+                const formatTime = (dateStr?: string) => {
+                    if (!dateStr) return "??:??";
+                    const d = new Date(dateStr);
+                    return isNaN(d.getTime()) ? "??:??" : d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+                };
+
+                const start = formatTime(ev.ActualStartTime || ev.ScheduledStartTime || ev.AddedAt);
+                let timeDetailsText = "";
+                
+                if (ev.IsPast && !ev.Live) {
+                    const end = formatTime(ev.ActualEndTime);
+                    timeDetailsText = `${start}-${end}`;
+                } else if (ev.Live) {
+                    timeDetailsText = `${start}`;
+                } else {
+                    timeDetailsText = `${start}`;
+                }
+
                 const isNotNow = !ev.Live;
                 const rawImageUrl = ev.ThumbnailUrl || ev.channel.ChannelImgUrl;
 
@@ -50,7 +66,7 @@ const EpgTrack = ({ row, navigateYouTube, onVideoError }: { row: any, navigateYo
                     <div key={ev.VideoId} className={`epg-card ${ev.Live ? 'is-live-card' : ''}`}>
                         <div className="epg-card-inner" tabIndex={0} onClick={() => navigateYouTube(`https://www.youtube.com/watch?v=${ev.VideoId}`)}>
                             <div className="timeline-channel-header epg-card-header">
-                                <span className={`time-badge epg-time-badge ${isNotNow ? 'inactive-time-badge' : ''}`}>{timeStr}</span>
+                                <span className={`time-badge epg-time-badge ${isNotNow ? 'inactive-time-badge' : ''}`}>{timeDetailsText}</span>
                             </div>
                             
                             <VideoCard
@@ -293,11 +309,11 @@ export const ScheduleGrid = ({
                     <div className="no-events-msg">No hay transmisiones programadas para este día.</div>
                 ) : (
                     <>
-                        {visibleRows.map((row, idx) => {
+                        {visibleRows.map((row) => {
                             const isAllPast = !row.events.some((e: any) => e.Live) && (row.events.every((e: any) => e.IsPast) || (isToday && new Date(row.events[row.events.length - 1].ScheduledStartTime).getTime() < today.getTime()));
 
                             return (
-                                <div key={`row-${idx}`} className={`timeline-row ${isAllPast ? 'past-row' : ''}`}>
+                                <div key={row.channel.ChannelName} className={`timeline-row ${isAllPast ? 'past-row' : ''}`}>
                                     <div className="timeline-channel-sidebar">
                                         <img src={row.channel.ChannelImgUrl} alt={row.channel.ChannelName} className="sidebar-channel-logo" loading="lazy" onError={() => setFailedChannels(prev => new Set(prev).add(row.channel.ChannelName))} />
                                         <span className="sidebar-channel-name">{row.channel.ChannelName}</span>
