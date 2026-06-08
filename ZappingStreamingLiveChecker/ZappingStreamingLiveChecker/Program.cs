@@ -377,7 +377,7 @@ namespace ZappingStreamSyncConsole
             // Tomamos solo la fecha (las 00:00:00 de hoy en UTC)
             var hoy = DateTimeOffset.UtcNow.Date;
             // Restamos 7 días (ej: si hoy es lunes, esto apunta a las 00:00:00 del lunes pasado)
-            var limite7Dias = hoy.AddDays(-7);
+            var limite7Dias = hoy.AddDays(-6);
 
             foreach (var canal in canales)
             {
