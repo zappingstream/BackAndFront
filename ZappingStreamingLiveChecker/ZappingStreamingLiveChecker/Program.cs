@@ -374,10 +374,14 @@ namespace ZappingStreamSyncConsole
             Console.WriteLine("\n=== INICIANDO PODA DE PASTS EN MONGODB ===");
             var canales = await collection.Find(_ => true).ToListAsync();
 
-            // Tomamos solo la fecha (las 00:00:00 de hoy en UTC)
-            var hoy = DateTimeOffset.UtcNow.Date;
-            // Restamos 7 días (ej: si hoy es lunes, esto apunta a las 00:00:00 del lunes pasado)
-            var limite7Dias = hoy.AddDays(-6);
+            // 1. Definimos nuestro offset de Argentina (UTC-3)
+            var offsetArg = TimeSpan.FromHours(-3);
+
+            // 2. Tomamos la hora actual, la pasamos a nuestra zona, y ahí recién sacamos la fecha
+            var hoyArg = DateTimeOffset.UtcNow.ToOffset(offsetArg).Date;
+
+            // 3. Restamos 7 días exactos. Si hoy es Lunes, esto es el Lunes pasado a las 00:00 locales.
+            var limite7DiasArg = hoyArg.AddDays(-7);
 
             foreach (var canal in canales)
             {
@@ -386,13 +390,14 @@ namespace ZappingStreamSyncConsole
 
                 foreach (var pastVideo in canal.Past.ToList())
                 {
-                    // Poda por tiempo físico (Offline) ignorando la hora
-                    if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var fechaFinalizacion))
+                    if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var fechaUtc))
                     {
-                        // Al usar <=, incluimos todo lo que haya pasado en ese día límite o antes
-                        if (fechaFinalizacion.Date <= limite7Dias)
+                        // Convertimos la fecha del video a nuestra zona horaria local antes de comparar
+                        var fechaVideoArg = fechaUtc.ToOffset(offsetArg).Date;
+
+                        if (fechaVideoArg <= limite7DiasArg)
                         {
-                            Console.WriteLine($"- {canal.ChannelName}: Eliminando {pastVideo.Key} (Terminó el {fechaFinalizacion.Date:yyyy-MM-dd}, límite era {limite7Dias:yyyy-MM-dd}).");
+                            Console.WriteLine($"- {canal.ChannelName}: Eliminando {pastVideo.Key} (Terminó el {fechaVideoArg:yyyy-MM-dd} local, límite era {limite7DiasArg:yyyy-MM-dd}).");
                             canal.Past.Remove(pastVideo.Key);
                             huboCambiosEnPasts = true;
                         }
