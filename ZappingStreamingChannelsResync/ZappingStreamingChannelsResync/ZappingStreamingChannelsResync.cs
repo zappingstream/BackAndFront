@@ -41,7 +41,7 @@ namespace ZappingStreamingDBService
         [BsonElement("category")]
         public string Category { get; set; }
     }
-
+    [BsonIgnoreExtraElements]
     public class ZappingChannel
     {
         // Mantengo tu lógica: el nombre sanitizado sigue siendo el _id
@@ -271,9 +271,35 @@ namespace ZappingStreamingDBService
                 }
             }
 
+            // --- NUEVO BLOQUE: LIMPIEZA DE HUÉRFANOS ---
+            _logger.LogInformation("Paso 2.5: Buscando canales huérfanos para eliminar...");
+
+            // 1. Creamos un HashSet rápido con los IDs válidos actuales
+            var idsValidosDeOrigen = canalesValidos.Select(c => c.ChannelId).ToHashSet();
+
+            // 2. Filtramos los canales que están en Mongo pero NO en el HashSet de válidos
+            var canalesAEliminar = canalesExistentes.Keys
+                .Where(idMongo => !idsValidosDeOrigen.Contains(idMongo))
+                .ToList();
+
+            if (canalesAEliminar.Any())
+            {
+                _logger.LogInformation("Se detectaron {Cantidad} canales que ya no están en origin. Eliminando...", canalesAEliminar.Count);
+
+                foreach (var idHuérfano in canalesAEliminar)
+                {
+                    // Agregamos la orden de borrado al mismo BulkWrite
+                    var deleteOp = new DeleteOneModel<ZappingChannel>(
+                        Builders<ZappingChannel>.Filter.Eq(c => c.Id, idHuérfano)
+                    );
+                    bulkOps.Add(deleteOp);
+                }
+            }
+            // --- FIN DEL NUEVO BLOQUE ---
+
             if (bulkOps.Any())
             {
-                _logger.LogInformation("Paso 3: Realizando BulkWrite de {Cantidad} canales a MongoDB...", bulkOps.Count);
+                _logger.LogInformation("Paso 3: Realizando BulkWrite de {Cantidad} operaciones a MongoDB...", bulkOps.Count);
                 await channelsCollection.BulkWriteAsync(bulkOps, cancellationToken: cancellationToken);
 
                 // Actualizamos la metadata
