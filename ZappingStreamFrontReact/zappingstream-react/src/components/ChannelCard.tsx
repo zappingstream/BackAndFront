@@ -27,17 +27,27 @@ export const ChannelCard = ({
 }: ChannelCardProps) => {
     const [failedVideos, setFailedVideos] = useState<Set<string>>(new Set());
 
-    // Filtrar los videos activos secundarios (si estamos en el grupo en vivo)
-    const restoActivos = isLiveGroup && channel.Actives
-        ? Object.values(channel.Actives).filter(v => v.VideoId !== channel.LiveVideoId && !failedVideos.has(v.VideoId))
+    // Extraer y ordenar los videos activos del más reciente al más antiguo
+    const activeVideos = isLiveGroup && channel.Actives
+        ? Object.values(channel.Actives).filter(v => !failedVideos.has(v.VideoId)).sort((a, b) => {
+            // Precedencia: Vivo (no estreno) por sobre Estreno
+            if (a.IsPremiere && !b.IsPremiere) return 1;
+            if (!a.IsPremiere && b.IsPremiere) return -1;
+
+            const timeA = new Date(a.ActualStartTime || a.ScheduledStartTime || a.AddedAt || 0).getTime();
+            const timeB = new Date(b.ActualStartTime || b.ScheduledStartTime || b.AddedAt || 0).getTime();
+            return timeB - timeA;
+        })
         : [];
 
-    // Ajustar el ancho según si está expandido y cuántos videos secundarios hay
+    const mainActive = activeVideos.length > 0 ? activeVideos[0] : null;
+    const restoActivos = activeVideos.slice(1);
+
     const cardWidthPx = isExpanded ? 0 : (isLiveGroup ? 320 + (restoActivos.length * 295) : 320);
     const cardStyle = isExpanded ? {} : { width: `${cardWidthPx}px` };
 
-    const primaryImageUrl = isLiveGroup && channel.ChannelLive && channel.ChannelImgLiveUrl
-        ? getFreshImage(channel.ChannelImgLiveUrl, channel.LastActivityAt)
+    const primaryImageUrl = mainActive && mainActive.ThumbnailUrl
+        ? getFreshImage(mainActive.ThumbnailUrl, channel.LastActivityAt)
         : channel.ChannelImgUrl;
 
     const renderHeader = () => (
@@ -46,7 +56,7 @@ export const ChannelCard = ({
             onClick={isLiveGroup ? () => abrirCanal(channel) : undefined} 
         >
             <div className="title-group">
-                {channel.ChannelImgUrl && (isExpanded || (isLiveGroup && channel.ChannelLive)) && (
+                {channel.ChannelImgUrl && (isExpanded || (isLiveGroup && mainActive)) && (
                     <img src={channel.ChannelImgUrl} alt="Logo" className="header-mini-logo" loading="lazy" />
                 )}
                 <h3 className="channel-title">{channel.ChannelName}</h3>
@@ -81,32 +91,37 @@ export const ChannelCard = ({
         </>
     );
 
-    const renderLiveBody = () => (
-        <div className="videos-horizontal-list">
-            <VideoCard 
-                className="primary-video"
-                imageUrl={primaryImageUrl}
-                altText={channel.ChannelName}
-                fallbackText={channel.ChannelName}
-                isLive={channel.ChannelLive}
-                isPremiere={channel.IsPremiere}
-                onClick={() => abrirCanal(channel)}
-            />
-            {restoActivos.map(activo => (
-                <VideoCard
-                    key={activo.VideoId}
-                    className="secondary-video"
-                    imageUrl={activo.ThumbnailUrl ? getFreshImage(activo.ThumbnailUrl, channel.LastActivityAt) : undefined}
-                    altText={activo.Title}
+    const renderLiveBody = () => {
+        if (!mainActive) return renderOnDemandBody();
+        
+        return (
+            <div className="videos-horizontal-list">
+                <VideoCard 
+                    className="primary-video"
+                    imageUrl={primaryImageUrl}
+                    altText={mainActive.Title || channel.ChannelName}
                     fallbackText={channel.ChannelName}
-                    isLive={true}
-                    isPremiere={activo.IsPremiere}
-                    onClick={(e) => { e.stopPropagation(); navigateYouTube(`https://www.youtube.com/watch?v=${activo.VideoId}`); }}
-                    onImageError={() => setFailedVideos(prev => new Set(prev).add(activo.VideoId))}
+                    isLive={mainActive.Live !== false}
+                    isPremiere={mainActive.IsPremiere}
+                    onClick={() => abrirCanal(channel)}
+                    onImageError={() => setFailedVideos(prev => new Set(prev).add(mainActive.VideoId))}
                 />
-            ))}
-        </div>
-    );
+                {restoActivos.map(activo => (
+                    <VideoCard
+                        key={activo.VideoId}
+                        className="secondary-video"
+                        imageUrl={activo.ThumbnailUrl ? getFreshImage(activo.ThumbnailUrl, channel.LastActivityAt) : undefined}
+                        altText={activo.Title}
+                        fallbackText={channel.ChannelName}
+                        isLive={true}
+                        isPremiere={activo.IsPremiere}
+                        onClick={(e) => { e.stopPropagation(); navigateYouTube(`https://www.youtube.com/watch?v=${activo.VideoId}`); }}
+                        onImageError={() => setFailedVideos(prev => new Set(prev).add(activo.VideoId))}
+                    />
+                ))}
+            </div>
+        );
+    };
 
     const renderOnDemandBody = () => (
         <VideoCard 

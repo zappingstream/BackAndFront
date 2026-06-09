@@ -56,8 +56,8 @@ export const ChannelCategoryRow = ({
 
     if (!channels.length) return null;
 
-    const canalesEnVivo = channels.filter(c => c.ChannelLive || (c.Actives && Object.keys(c.Actives).length > 0));
-    const canalesOnDemand = channels.filter(c => !c.ChannelLive && (!c.Actives || Object.keys(c.Actives).length === 0));
+    const canalesEnVivo = channels.filter(c => c.Actives && Object.keys(c.Actives).length > 0);
+    const canalesOnDemand = channels.filter(c => !c.Actives || Object.keys(c.Actives).length === 0);
 
     const isExpanded = (name: string) => expandedChannels.has(name);
 

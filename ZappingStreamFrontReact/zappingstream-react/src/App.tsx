@@ -79,15 +79,24 @@ export default function App() {
   const navigateYouTube = (url: string) => window.open(url, '_blank', 'noopener,noreferrer');
 
   const abrirCanal = (canal: Channel) => {
-    let urlDestino = canal.ChannelLiveUrl;
-    const hasActives = canal.Actives && Object.keys(canal.Actives).length > 0;
+    const activeVideos = canal.Actives ? Object.values(canal.Actives) : [];
+    
+    if (activeVideos.length > 0) {
+      activeVideos.sort((a, b) => {
+        // Precedencia: Vivo (no estreno) por sobre Estreno
+        if (a.IsPremiere && !b.IsPremiere) return 1;
+        if (!a.IsPremiere && b.IsPremiere) return -1;
 
-    if (canal.ChannelLive || hasActives) {
-      if (canal.IsPremiere && canal.LiveVideoId) {
-        urlDestino = `https://www.youtube.com/watch?v=${canal.LiveVideoId}`;
+        const timeA = new Date(a.ActualStartTime || a.ScheduledStartTime || a.AddedAt || 0).getTime();
+        const timeB = new Date(b.ActualStartTime || b.ScheduledStartTime || b.AddedAt || 0).getTime();
+        return timeB - timeA;
+      });
+      const mainActive = activeVideos[0];
+      if (!mainActive.IsPremiere && canal.ChannelLiveUrl) {
+        navigateYouTube(canal.ChannelLiveUrl);
+      } else {
+        navigateYouTube(`https://www.youtube.com/watch?v=${mainActive.VideoId}`);
       }
-      if (urlDestino)
-        navigateYouTube(urlDestino);
     } else {
       abrirCanalOnStreams(canal);
     }

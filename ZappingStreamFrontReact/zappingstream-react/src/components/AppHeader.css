@@ -17,7 +17,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 15px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 .zapping-header {
@@ -26,7 +26,9 @@
 
 .app-logo {
     width: 250px;
-    height: 250px;
+    height: auto;
+    max-height: 100px;
+    object-fit: contain;
 }
 
 .header-controls {
@@ -180,26 +182,72 @@
     color: var(--bg-black);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 992px) {
+    .sticky-top-section {
+        padding-top: 8px;
+        padding-bottom: 8px;
+    }
+
     .top-bar-container {
-        justify-content: center;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: nowrap;
+    }
+
+    .zapping-header {
+        width: auto;
+        flex-shrink: 0;
+    }
+
+    .app-logo {
+        width: 100px;
+        height: auto;
+        max-height: 100px;
     }
 
     .header-controls {
-        order: 3;
-        max-width: 100%;
+        order: unset;
+        max-width: calc(100% - 115px);
         width: 100%;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
     }
 
     .filters-container {
         flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+        min-width: 0;
     }
+
     .search-input {
         width: 100%;
+        min-width: 0;
         flex-basis: 100%;
+        padding: 6px 12px;
+        font-size: 0.85rem;
     }
+
     .filter-select {
-        flex: 1;
-        min-width: 45%;
+        flex: 1 1 45%;
+        min-width: 0;
+        width: auto;
+        max-width: none;
+        padding: 6px 18px 6px 8px;
+        font-size: 0.75rem;
+        background-size: 10px auto;
+        background-position: right 5px top 50%;
+    }
+
+    .view-mode-container {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 5px;
+    }
+
+    .view-mode-btn {
+        padding: 4px 8px;
+        font-size: 0.75rem;
     }
 }

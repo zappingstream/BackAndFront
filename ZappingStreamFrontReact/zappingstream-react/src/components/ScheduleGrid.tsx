@@ -182,38 +182,6 @@ export const ScheduleGrid = ({
                 });
             }
 
-            if (channel.ChannelLive && channel.LiveVideoId) {
-                const alreadyExists = events.some(e => e.VideoId === channel.LiveVideoId);
-                if (!alreadyExists) {
-                    let realTitle = `${channel.ChannelName} en vivo`;
-
-                    const activeVid = channel.Actives ? Object.values(channel.Actives).find(v => v.VideoId === channel.LiveVideoId) : null;
-                    const upcomingVid = channel.Upcoming ? Object.values(channel.Upcoming).find(v => v.VideoId === channel.LiveVideoId) : null;
-
-                    if (activeVid?.Title) realTitle = activeVid.Title;
-                    else if (upcomingVid?.Title) realTitle = upcomingVid.Title;
-
-                    const effectiveStart = activeVid?.ActualStartTime || activeVid?.ScheduledStartTime || activeVid?.AddedAt || upcomingVid?.ActualStartTime || upcomingVid?.ScheduledStartTime || upcomingVid?.AddedAt || new Date().toISOString();
-                    const vDate = new Date(effectiveStart);
-
-                    if (vDate.getFullYear() === selectedDate.getFullYear() &&
-                        vDate.getMonth() === selectedDate.getMonth() &&
-                        vDate.getDate() === selectedDate.getDate()) {
-
-                        events.push({
-                            VideoId: channel.LiveVideoId,
-                            Title: realTitle,
-                            ScheduledStartTime: effectiveStart,
-                            ThumbnailUrl: channel.ChannelImgLiveUrl || channel.ChannelImgUrl,
-                            AddedAt: new Date().toISOString(),
-                            Live: true,
-                            IsPremiere: channel.IsPremiere,
-                            channel
-                        });
-                    }
-                }
-            }
-
             if (events.length > 0) {
                 const getTime = (dateStr?: string) => {
                     if (!dateStr) return new Date().getTime();

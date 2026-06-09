@@ -49,12 +49,6 @@ export interface Channel {
   ChannelLiveUrl?: string;
   ChannelImgUrl?: string;
   ChannelBannerUrl?: string;
-
-  ChannelLive: boolean;
-  ChannelImgLiveUrl?: string;
-  LiveVideoId?: string;
-  IsPremiere: boolean;
-
   Upcoming?: Record<string, UpcomingVideo>;
   Actives?: Record<string, ActiveVideo>;
   Past?: Record<string, PastVideo>;
