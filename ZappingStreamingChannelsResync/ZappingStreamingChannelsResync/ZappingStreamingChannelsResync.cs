@@ -58,11 +58,6 @@ namespace ZappingStreamingDBService
         public string ChannelBannerUrl { get; set; }
         public string LastActivityAt { get; set; }
 
-        // --- LEGACY ---
-        public bool ChannelLive { get; set; }
-        public string ChannelImgLiveUrl { get; set; }
-        public string LiveVideoId { get; set; }
-        public bool IsPremiere { get; set; }
 
         // --- COLECCIONES ---
         public Dictionary<string, UpcomingVideo> Upcoming { get; set; }
@@ -231,13 +226,9 @@ namespace ZappingStreamingDBService
 
                     if (canalesExistentes.TryGetValue(mongoKey, out var canalAnterior))
                     {
-                        estabaEnVivo = canalAnterior.ChannelLive;
-                        imgLiveUrlAnterior = canalAnterior.ChannelImgLiveUrl ?? "";
                         lastActivityAnterior = string.IsNullOrEmpty(canalAnterior.LastActivityAt)
                             ? "2000-01-01T00:00:00Z"
                             : canalAnterior.LastActivityAt;
-                        videoLiveIdAnterior = canalAnterior.LiveVideoId ?? "";
-                        isPremiereAnterior = canalAnterior.IsPremiere;
 
                         upcomingAnterior = canalAnterior.Upcoming;
                         activesAnterior = canalAnterior.Actives;
@@ -261,11 +252,7 @@ namespace ZappingStreamingDBService
                         ChannelCity = stream.City,
                         ChannelType = stream.Category,
 
-                        ChannelLive = estabaEnVivo,
-                        ChannelImgLiveUrl = imgLiveUrlAnterior,
                         LastActivityAt = lastActivityAnterior,
-                        LiveVideoId = videoLiveIdAnterior,
-                        IsPremiere = isPremiereAnterior,
 
                         Upcoming = upcomingAnterior,
                         Actives = activesAnterior,
