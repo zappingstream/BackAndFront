@@ -30,13 +30,7 @@ namespace ZappingStreamSyncConsole
         public string ChannelBannerUrl { get; set; }
         public string LastActivityAt { get; set; }
 
-        // Legacy
-        public bool ChannelLive { get; set; }
-        public string ChannelImgLiveUrl { get; set; }
-        public string LiveVideoId { get; set; }
-        public bool IsPremiere { get; set; }
-
-        // Diccionarios
+        // Diccionarios - La única fuente de la verdad
         public Dictionary<string, UpcomingVideo> Upcoming { get; set; }
         public Dictionary<string, ActiveVideo> Actives { get; set; }
         public Dictionary<string, PastVideo> Past { get; set; }
@@ -166,10 +160,6 @@ namespace ZappingStreamSyncConsole
                 {
                     foreach (var key in canal.Actives.Keys) videoIds.Add(key);
                 }
-                else if (!string.IsNullOrEmpty(canal.LiveVideoId))
-                {
-                    videoIds.Add(canal.LiveVideoId);
-                }
 
                 if (canal.Upcoming != null)
                 {
@@ -193,11 +183,6 @@ namespace ZappingStreamSyncConsole
                 canal.Past ??= new Dictionary<string, PastVideo>();
 
                 var vivosActuales = canal.Actives;
-                if (!vivosActuales.Any() && !string.IsNullOrEmpty(canal.LiveVideoId))
-                {
-                    vivosActuales[canal.LiveVideoId] = new ActiveVideo { VideoId = canal.LiveVideoId };
-                }
-
                 var vivosSobrevivientes = new List<ActiveVideo>();
 
                 // --- A. REVISIÓN DE VIVOS ---
@@ -348,29 +333,14 @@ namespace ZappingStreamSyncConsole
                     }
                 }
 
-                // --- C. RECALCULAR FALLBACK Y GUARDAR EN MONGO ---
+                // --- C. GUARDAR EN MONGO ---
                 if (huboCambios)
                 {
-                    if (vivosSobrevivientes.Any())
-                    {
-                        var streamGanador = vivosSobrevivientes.OrderBy(v => v.IsPremiere).ThenByDescending(v => v.AddedAt ?? "").First();
-                        Console.WriteLine($"> {canal.ChannelName}: Recalculando... Portada global asignada a {streamGanador.VideoId}");
+                    canal.LastActivityAt = sysTimeNow;
 
-                        canal.ChannelLive = true;
-                        canal.LiveVideoId = streamGanador.VideoId;
-                        canal.ChannelImgLiveUrl = streamGanador.ThumbnailUrl ?? canal.ChannelImgLiveUrl;
-                        canal.LastActivityAt = sysTimeNow;
-                        canal.IsPremiere = streamGanador.IsPremiere;
-                    }
-                    else
+                    if (!vivosSobrevivientes.Any())
                     {
-                        Console.WriteLine($"> {canal.ChannelName}: No quedaron streams vivos. APAGANDO CANAL.");
-
-                        canal.ChannelLive = false;
-                        canal.LiveVideoId = "";
-                        canal.ChannelImgLiveUrl = "";
-                        canal.LastActivityAt = sysTimeNow;
-                        canal.IsPremiere = false;
+                        Console.WriteLine($"> {canal.ChannelName}: No quedaron streams vivos documentados.");
                     }
 
                     await collection.ReplaceOneAsync(c => c.Id == canal.Id, canal);
@@ -527,11 +497,6 @@ namespace ZappingStreamSyncConsole
                                     Console.WriteLine($"- {canal.ChannelName}: Registro Past ({past.Key}) eliminado. Superó 12hs y YA NO ESTÁ en YouTube.");
                                     canal.Past.Remove(past.Key);
                                     huboCambios = true;
-                                }
-                                else
-                                {
-                                    // Opcional: Console.WriteLine para debug si quieres ver los que sobreviven
-                                    // Console.WriteLine($"- {canal.ChannelName}: Past ({past.Key}) > 12hs conservado. Sigue público.");
                                 }
                             }
                         }
