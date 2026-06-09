@@ -374,7 +374,8 @@ namespace ZappingStreamSyncConsole
 
                 foreach (var pastVideo in canal.Past.ToList())
                 {
-                    if (DateTimeOffset.TryParse(pastVideo.Value.EndedAt, out var fechaUtc))
+                    string fechaRef = pastVideo.Value.ActualStartTime ?? pastVideo.Value.EndedAt;
+                    if (DateTimeOffset.TryParse(fechaRef, out var fechaUtc))
                     {
                         // Convertimos la fecha del video a nuestra zona horaria local antes de comparar
                         var fechaVideoArg = fechaUtc.ToOffset(offsetArg).Date;
