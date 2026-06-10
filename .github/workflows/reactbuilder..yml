@@ -1,12 +1,7 @@
 name: Compilar App Android
 
 on:
-  push:
-    branches:
-      - main
-    # Solo ejecuta este workflow si hay cambios dentro de la carpeta del frontend
-    paths:
-      - 'ZappingStreamFrontReact/zappingstream-react/**'
+  workflow_dispatch:
 
 jobs:
   build-android:
@@ -24,7 +19,7 @@ jobs:
       - name: 2. Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: 3. Instalar dependencias
         run: npm install
