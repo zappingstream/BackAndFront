@@ -1,0 +1,54 @@
+name: Compilar App Android
+
+on:
+  push:
+    branches:
+      - main
+    # Solo ejecuta este workflow si hay cambios dentro de la carpeta del frontend
+    paths:
+      - 'ZappingStreamFrontReact/zappingstream-react/**'
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    # Le decimos a GitHub que, por defecto, corra los comandos en la carpeta de React
+    defaults:
+      run:
+        working-directory: ./ZappingStreamFrontReact/zappingstream-react
+
+    steps:
+      - name: 1. Descargar el código del repositorio
+        uses: actions/checkout@v4
+
+      - name: 2. Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 3. Instalar dependencias
+        run: npm install
+
+      - name: 4. Compilar React
+        run: npm run build
+
+      - name: 5. Configurar Java JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: 6. Sincronizar Capacitor
+        run: npx cap sync android
+
+      - name: 7. Compilar el APK con Gradle
+        # Acá sobreescribimos el directorio de trabajo para apuntar a la carpeta nativa
+        working-directory: ./ZappingStreamFrontReact/zappingstream-react/android
+        run: ./gradlew assembleDebug 
+
+      - name: 8. Subir el APK final
+        uses: actions/upload-artifact@v4
+        with:
+          name: zapping-app-debug
+          # La ruta al artefacto se cuenta desde la raíz absoluta del repositorio
+          path: ZappingStreamFrontReact/zappingstream-react/android/app/build/outputs/apk/debug/app-debug.apk
