@@ -31,15 +31,16 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'
 
       - name: 6. Sincronizar Capacitor
         run: npx cap sync android
 
       - name: 7. Compilar el APK con Gradle
-        # Acá sobreescribimos el directorio de trabajo para apuntar a la carpeta nativa
         working-directory: ./ZappingStreamFrontReact/zappingstream-react/android
-        run: ./gradlew assembleDebug 
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
 
       - name: 8. Subir el APK final
         uses: actions/upload-artifact@v4
