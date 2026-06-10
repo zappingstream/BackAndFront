@@ -1,12 +1,7 @@
 name: Compilar App Android
 
 on:
-  push:
-    branches:
-      - main
-    # Solo ejecuta este workflow si hay cambios dentro de la carpeta del frontend
-    paths:
-      - 'ZappingStreamFrontReact/zappingstream-react/**'
+  workflow_dispatch:
 
 jobs:
   build-android:
