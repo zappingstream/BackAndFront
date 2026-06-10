@@ -47,4 +47,4 @@ jobs:
         with:
           name: zapping-app-debug
           # La ruta al artefacto se cuenta desde la raíz absoluta del repositorio
-          path: ZappingStreamFrontReact/zappingstream-react/android/app/build/outputs/apk/debug/app-debug.apk
+          path: ZappingStreamFrontReact/zappingstream-react/android/app/build/outputs/apk/debug/zapping-stream-debug.apk
