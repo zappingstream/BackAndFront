@@ -1,0 +1,6 @@
+{
+  "appId": "com.zapping.streaming",
+  "appName": "Zapping Streaming",
+  "webDir": "build",
+  "bundledWebRuntime": false
+}
