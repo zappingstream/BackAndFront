@@ -54,8 +54,6 @@ export const ChannelCategoryRow = ({
         };
     }, [channels, expandedChannels]);
 
-    if (!channels.length) return null;
-
     const canalesEnVivo = channels.filter(c => c.Actives && Object.keys(c.Actives).length > 0);
     const canalesOnDemand = channels.filter(c => !c.Actives || Object.keys(c.Actives).length === 0);
 
