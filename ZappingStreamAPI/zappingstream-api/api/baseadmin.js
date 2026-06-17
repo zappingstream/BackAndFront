@@ -82,6 +82,14 @@ export async function handleAdminRequest(req, res) {
                 </table>
             </div>
         </div>
+        <div class="card">
+            <h3>Probar Webhook (Simular notificación WebSub)</h3>
+            <form id="webhookForm">
+                <input type="text" id="webhookVideoId" placeholder="Video ID de YouTube (ej: dQw4w9WgXcQ)" required />
+                <button type="submit" class="submit-btn">Enviar Webhook para este Video ID</button>
+            </form>
+            <p id="webhookResult" style="margin-top: 10px; font-size: 0.9em;"></p>
+        </div>
     </div>
     <script>
         let currentChannels = [];
@@ -174,6 +182,33 @@ export async function handleAdminRequest(req, res) {
             }
         }
 
+        document.getElementById('webhookForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const videoId = document.getElementById('webhookVideoId').value;
+            const resultEl = document.getElementById('webhookResult');
+            resultEl.textContent = 'Enviando...';
+            resultEl.style.color = 'var(--text-white)';
+            
+            try {
+                const res = await fetch('/api/origin/test-webhook', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ videoId })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    resultEl.textContent = 'Enviado correctamente (HTTP ' + data.status + '): ' + (data.message || 'OK');
+                    resultEl.style.color = '#28a745';
+                } else {
+                    resultEl.textContent = 'Error (HTTP ' + (data.status || res.status) + '): ' + (data.error || data.message || 'Fallo al enviar');
+                    resultEl.style.color = '#dc3545';
+                }
+            } catch (error) {
+                resultEl.textContent = 'Error de red: ' + error.message;
+                resultEl.style.color = '#dc3545';
+            }
+        });
+
         loadChannels();
         loadProvinces();
     </script>
@@ -199,6 +234,50 @@ export async function handleAdminRequest(req, res) {
         } catch (error) {
             res.status(500).json({ error: error.message });
             return true;
+        }
+    }
+
+    if (path === "/api/origin/test-webhook") {
+        if (req.method === "POST") {
+            try {
+                const videoId = req.body?.videoId || "";
+                
+                // Generamos la estructura XML (ATOM) simulando a YouTube
+                const xmlData = `<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns="http://www.w3.org/2005/Atom">
+  <link rel="hub" href="https://pubsubhubbub.appspot.com"/>
+  <title>YouTube video feed</title>
+  <updated>${new Date().toISOString()}</updated>
+  <entry>
+    <id>yt:video:${videoId}</id>
+    <yt:videoId>${videoId}</yt:videoId>
+    <yt:channelId>TEST_CHANNEL_ADMIN</yt:channelId>
+    <title>Video de Prueba Simulado (${videoId})</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=${videoId}"/>
+    <author>
+      <name>Admin Webhook Test</name>
+      <uri>https://www.youtube.com/channel/TEST_CHANNEL_ADMIN</uri>
+    </author>
+    <published>${new Date().toISOString()}</published>
+    <updated>${new Date().toISOString()}</updated>
+  </entry>
+</feed>`;
+
+                const response = await fetch("https://zappingstreamlivewebhook.onrender.com/webhook", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/atom+xml" // YouTube / WebSub usa este Content-Type
+                    },
+                    body: xmlData
+                });
+
+                const responseText = await response.text();
+                res.status(200).json({ success: response.ok, status: response.status, message: responseText });
+                return true;
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+                return true;
+            }
         }
     }
 
