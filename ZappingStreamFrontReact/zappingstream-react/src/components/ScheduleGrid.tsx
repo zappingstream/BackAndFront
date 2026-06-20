@@ -114,10 +114,10 @@ export const ScheduleGrid = ({
     abrirCanalOnStreams,
     abrirCanalOnDemand,
 }: ScheduleGridProps) => {
-    // Generar la lista de 15 días (-7 a +7)
+    // Generar la lista de 14 días (-6 a +7)
     const days = useMemo(() => {
         const daysList = [];
-        for (let i = -7; i <= 7; i++) {
+        for (let i = -6; i <= 7; i++) {
             const d = new Date();
             d.setDate(d.getDate() + i);
             daysList.push(d);
@@ -129,6 +129,18 @@ export const ScheduleGrid = ({
     const [selectedDate, setSelectedDate] = useState<Date>(today);
     const daysRailRef = useRef<HTMLDivElement>(null);
     useHorizontalScroll<HTMLDivElement>(daysRailRef as RefObject<HTMLDivElement>);
+
+    const [headerHeight, setHeaderHeight] = useState(120);
+
+    useEffect(() => {
+        const header = document.querySelector('.sticky-top-section');
+        if (header) {
+            const updateHeight = () => setHeaderHeight(header.getBoundingClientRect().height);
+            updateHeight();
+            window.addEventListener('resize', updateHeight);
+            return () => window.removeEventListener('resize', updateHeight);
+        }
+    }, []);
 
     const [failedVideos, setFailedVideos] = useState<Set<string>>(new Set());
     const [failedChannels, setFailedChannels] = useState<Set<string>>(new Set());
@@ -253,7 +265,16 @@ export const ScheduleGrid = ({
 
     return (
         <div className="schedule-container">
-            <div className="days-rail-wrapper">
+            <div 
+                className="days-rail-wrapper" 
+                style={{ 
+                    position: 'sticky', 
+                    top: headerHeight, 
+                    zIndex: 40, 
+                    backgroundColor: 'var(--bg-black)',
+                    paddingBottom: '5px' 
+                }}
+            >
                 <div className="days-rail" ref={daysRailRef}>
                 {days.map((date, idx) => {
                     const isSelected = date.toDateString() === selectedDate.toDateString();
