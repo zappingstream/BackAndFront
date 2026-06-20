@@ -270,7 +270,7 @@ export const ScheduleGrid = ({
                 style={{ 
                     position: 'sticky', 
                     top: headerHeight, 
-                    zIndex: 40, 
+                    zIndex: 60, 
                     backgroundColor: 'var(--bg-black)',
                     paddingBottom: '5px' 
                 }}
