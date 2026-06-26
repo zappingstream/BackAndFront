@@ -214,11 +214,7 @@ namespace ZappingStreamingDBService
                     string channelName = channelInfo.Snippet.Title;
                     string mongoKey = stream.ChannelId;
 
-                    bool estabaEnVivo = false;
-                    string imgLiveUrlAnterior = "";
                     string lastActivityAnterior = "2000-01-01T00:00:00Z";
-                    string videoLiveIdAnterior = "";
-                    bool isPremiereAnterior = false;
 
                     Dictionary<string, UpcomingVideo> upcomingAnterior = null;
                     Dictionary<string, ActiveVideo> activesAnterior = null;
