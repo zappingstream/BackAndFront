@@ -212,7 +212,7 @@ namespace ZappingStreamingDBService
                 if (infoCanalesYT.TryGetValue(stream.ChannelId, out var channelInfo))
                 {
                     string channelName = channelInfo.Snippet.Title;
-                    string mongoKey = stream.ChannelId; 
+                    string mongoKey = stream.ChannelId;
 
                     bool estabaEnVivo = false;
                     string imgLiveUrlAnterior = "";
@@ -275,7 +275,7 @@ namespace ZappingStreamingDBService
             _logger.LogInformation("Paso 2.5: Buscando canales huérfanos para eliminar...");
 
             // 1. Creamos un HashSet rápido con los IDs válidos actuales
-            var idsValidosDeOrigen = canalesValidos.Select(c => c.ChannelId).ToHashSet();
+            var idsValidosDeOrigen = infoCanalesYT.Keys.ToHashSet();
 
             // 2. Filtramos los canales que están en Mongo pero NO en el HashSet de válidos
             var canalesAEliminar = canalesExistentes.Keys
