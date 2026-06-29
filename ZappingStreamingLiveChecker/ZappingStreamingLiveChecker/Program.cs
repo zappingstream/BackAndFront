@@ -294,23 +294,35 @@ namespace ZappingStreamSyncConsole
                         }
                         else if (status == "none")
                         {
-                            Console.WriteLine($"- {canal.ChannelName}: El programado {upc.Key} es un video normal ahora. Moviendo a Past...");
+                            // PROTECCIÓN CONTRA GLITCHES: Si dice 'none' pero es a futuro y nunca terminó, no le creemos.
+                            string fechaRef = scheduledStart ?? upc.Value.ScheduledStartTime;
+                            bool estaEnFuturo = DateTimeOffset.TryParse(fechaRef, out var dt) && dt > ahora;
+                            bool tieneFinReal = !string.IsNullOrEmpty(actualEnd); // Si de verdad transmitió y terminó antes de tiempo
 
-                            canal.Past[upc.Key] = new PastVideo
+                            if (!tieneFinReal && estaEnFuturo)
                             {
-                                VideoId = upc.Key,
-                                Title = ytVideo.Snippet?.Title ?? upc.Value.Title,
-                                ThumbnailUrl = upc.Value.ThumbnailUrl,
-                                WasPremiere = upc.Value.IsPremiere,
-                                PublishedAt = publishedAt ?? upc.Value.PublishedAt,
-                                ScheduledStartTime = scheduledStart ?? upc.Value.ScheduledStartTime,
-                                ActualStartTime = actualStart ?? upc.Value.ActualStartTime,
-                                ActualEndTime = actualEnd ?? sysTimeNow,
-                                EndedAt = sysTimeNow
-                            };
+                                Console.WriteLine($"- {canal.ChannelName}: IGNORADO: El programado {upc.Key} dice 'none' pero es para las {dt.ToLocalTime():HH:mm}. Posible edición en YT Studio.");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"- {canal.ChannelName}: El programado {upc.Key} es un video normal ahora. Moviendo a Past...");
 
-                            canal.Upcoming.Remove(upc.Key);
-                            huboCambios = true;
+                                canal.Past[upc.Key] = new PastVideo
+                                {
+                                    VideoId = upc.Key,
+                                    Title = ytVideo.Snippet?.Title ?? upc.Value.Title,
+                                    ThumbnailUrl = upc.Value.ThumbnailUrl,
+                                    WasPremiere = upc.Value.IsPremiere,
+                                    PublishedAt = publishedAt ?? upc.Value.PublishedAt,
+                                    ScheduledStartTime = scheduledStart ?? upc.Value.ScheduledStartTime,
+                                    ActualStartTime = actualStart ?? upc.Value.ActualStartTime,
+                                    ActualEndTime = actualEnd ?? sysTimeNow,
+                                    EndedAt = sysTimeNow
+                                };
+
+                                canal.Upcoming.Remove(upc.Key);
+                                huboCambios = true;
+                            }
                         }
                         else if (status == "upcoming")
                         {
