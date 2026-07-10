@@ -14,7 +14,7 @@ export const StatusDisplay = ({ isFetching, isLoading, hasChannels, hasFilteredC
         return (
             <div className="status-message">
                 <div className="spinner"></div>
-                <p>Conectando con el universo del stream argentino...</p>
+                <p>Conectando...</p>
             </div>
         );
     }
