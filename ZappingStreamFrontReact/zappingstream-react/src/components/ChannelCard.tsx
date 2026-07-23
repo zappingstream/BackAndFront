@@ -29,7 +29,7 @@ export const ChannelCard = ({
 
     // Extraer y ordenar los videos activos del más reciente al más antiguo
     const activeVideos = isLiveGroup && channel.Actives
-        ? Object.values(channel.Actives).filter(v => !failedVideos.has(v.VideoId)).sort((a, b) => {
+        ? Object.values(channel.Actives).filter(v => v.ThumbnailUrl && !failedVideos.has(v.VideoId)).sort((a, b) => {
             // Precedencia: Vivo (no estreno) por sobre Estreno
             if (a.IsPremiere && !b.IsPremiere) return 1;
             if (!a.IsPremiere && b.IsPremiere) return -1;

@@ -216,7 +216,7 @@ export const ScheduleGrid = ({
         return channelRows
             .map(row => ({
                 ...row,
-                events: row.events.filter(ev => !failedVideos.has(ev.VideoId))
+                events: row.events.filter(ev => ev.ThumbnailUrl && !failedVideos.has(ev.VideoId))
             }))
             .filter(row => row.events.length > 0 && !failedChannels.has(row.channel.ChannelName));
     }, [channelRows, failedVideos, failedChannels]);
