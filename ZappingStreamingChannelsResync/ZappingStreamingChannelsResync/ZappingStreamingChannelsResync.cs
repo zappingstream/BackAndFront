@@ -1,4 +1,4 @@
-﻿using Firebase.Database;
+using Firebase.Database;
 using Firebase.Database.Query;
 using Google.Apis.Services;
 using Google.Apis.YouTube.v3;
@@ -15,7 +15,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
