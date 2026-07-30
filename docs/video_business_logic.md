@@ -25,7 +25,7 @@ El módulo principal que verifica el estado contra la API de YouTube ejecuta per
 - **Cancelaciones o Desapariciones**: Igual que los activos, si desaparecen, se les aplica el *Soft Delete* (`ToBeCut = true`).
 - **Protección contra Glitches**: Si YouTube reporta que un video ya no es `upcoming` ni `live` (estado `"none"`), pero su horario programado está en el futuro, el sistema lo **ignora** asumiendo que el streamer está editando el evento en YT Studio y la API de YouTube está demorada/glitcheada.
 - **Limpieza de "Colgados"**: Si un stream `Upcoming` superó su hora de programación inicial hace **más de 24 horas**, el sistema asume que el canal olvidó borrarlo y el evento nunca sucedió. Es eliminado definitivamente de la base de datos.
-- **Limpieza de Sin Horario**: Si un stream `Upcoming` no tiene una hora de programación asignada (`scheduledStartTime` es nulo o vacío) y ha permanecido en el sistema por **más de 7 días** (basado en su fecha de agregado o publicación), es eliminado definitivamente.
+- **Limpieza de Sin Horario**: Si un stream `Upcoming` no tiene una hora de programación asignada (`scheduledStartTime` es nulo o vacío) y ha permanecido en el sistema por **más de 2 días** (basado en su fecha de agregado o publicación), es eliminado definitivamente.
 
 ---
 
