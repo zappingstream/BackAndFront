@@ -341,13 +341,13 @@ namespace ZappingStreamSyncConsole
                                 canal.Upcoming.Remove(upc.Key);
                                 huboCambios = true;
                             }
-                            // Control de limpieza de Upcoming sin fecha programada (> 2 días)
+                            // Control de limpieza de Upcoming sin fecha programada (> 7 días)
                             else if (string.IsNullOrEmpty(canal.Upcoming[upc.Key].ScheduledStartTime))
                             {
                                 string fechaReferencia = canal.Upcoming[upc.Key].AddedAt ?? canal.Upcoming[upc.Key].PublishedAt;
-                                if (DateTimeOffset.TryParse(fechaReferencia, out var refTime) && (ahora - refTime).TotalDays > 2)
+                                if (DateTimeOffset.TryParse(fechaReferencia, out var refTime) && (ahora - refTime).TotalDays > 7)
                                 {
-                                    Console.WriteLine($"- {canal.ChannelName}: El programado {upc.Key} sin ScheduledStartTime superó los 2 días. Eliminándolo definitivamente...");
+                                    Console.WriteLine($"- {canal.ChannelName}: El programado {upc.Key} sin ScheduledStartTime superó los 7 días. Eliminándolo definitivamente...");
                                     canal.Upcoming.Remove(upc.Key);
                                     huboCambios = true;
                                 }
