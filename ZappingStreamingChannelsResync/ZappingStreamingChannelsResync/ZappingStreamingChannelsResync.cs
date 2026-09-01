@@ -325,7 +325,8 @@ namespace ZappingStreamingDBService
                     {
                         new KeyValuePair<string, string>("hub.mode", "subscribe"),
                         new KeyValuePair<string, string>("hub.topic", $"https://www.youtube.com/xml/feeds/videos.xml?channel_id={str.ChannelId}"),
-                        new KeyValuePair<string, string>("hub.callback", "https://zappingstreamlivewebhook.onrender.com/webhook")
+                        new KeyValuePair<string, string>("hub.callback", "https://zappingstreamlivewebhook.onrender.com/webhook"),
+                        new KeyValuePair<string, string>("hub.verify", "async")
                     });
 
                     try
