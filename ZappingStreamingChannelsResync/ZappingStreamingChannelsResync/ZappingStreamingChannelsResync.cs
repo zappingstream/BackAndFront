@@ -325,13 +325,12 @@ namespace ZappingStreamingDBService
                     {
                         new KeyValuePair<string, string>("hub.mode", "subscribe"),
                         new KeyValuePair<string, string>("hub.topic", $"https://www.youtube.com/xml/feeds/videos.xml?channel_id={str.ChannelId}"),
-                        new KeyValuePair<string, string>("hub.callback", "https://zappingstreamlivewebhook.onrender.com/webhook"),
-                        new KeyValuePair<string, string>("hub.verify", "async")
+                        new KeyValuePair<string, string>("hub.callback", "https://zappingstreamlivewebhook.onrender.com/webhook")
                     });
 
                     try
                     {
-                        var response = await _httpClient.PostAsync("https://pubsubhubbub.superfeedr.com", values, cancellationToken);
+                        var response = await _httpClient.PostAsync("https://pubsubhubbub.appspot.com/subscribe", values, cancellationToken);
                         if (!response.IsSuccessStatusCode)
                         {
                             _logger.LogWarning("Fallo al suscribir {Channel}: {Status}", str.Title, response.StatusCode);
