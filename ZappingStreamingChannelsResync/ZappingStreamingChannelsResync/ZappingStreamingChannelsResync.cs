@@ -330,7 +330,7 @@ namespace ZappingStreamingDBService
 
                     try
                     {
-                        var response = await _httpClient.PostAsync("https://pubsubhubbub.appspot.com/subscribe", values, cancellationToken);
+                        var response = await _httpClient.PostAsync("https://pubsubhubbub.superfeedr.com", values, cancellationToken);
                         if (!response.IsSuccessStatusCode)
                         {
                             _logger.LogWarning("Fallo al suscribir {Channel}: {Status}", str.Title, response.StatusCode);
