@@ -179,6 +179,8 @@ namespace ZappingStreamingIncomingVideos
                 return;
             }
 
+            var todosLosNuevosVideos = new List<(string VideoId, string ChannelId)>();
+
             foreach (var canal in canales)
             {
                 if (cancellationToken.IsCancellationRequested) break;
@@ -287,8 +289,11 @@ namespace ZappingStreamingIncomingVideos
 
                 if (nuevosVideos.Any())
                 {
-                    _logger.LogInformation("Se encontraron {Count} videos nuevos en {ChannelName}. Consultando API de YouTube...", nuevosVideos.Count, canal.ChannelName);
-                    await ProcesarBatchAsync(nuevosVideos, channelId, cancellationToken);
+                    _logger.LogInformation("Se encontraron {Count} videos nuevos en {ChannelName}.", nuevosVideos.Count, canal.ChannelName);
+                    foreach (var vid in nuevosVideos)
+                    {
+                        todosLosNuevosVideos.Add((vid, channelId));
+                    }
                 }
                 else
                 {
@@ -297,48 +302,58 @@ namespace ZappingStreamingIncomingVideos
                 
                 await Task.Delay(500, cancellationToken); // Pequeño delay para no saturar
             }
+
+            if (todosLosNuevosVideos.Any())
+            {
+                _logger.LogInformation("Se encontraron un total de {Count} videos nuevos en todos los canales. Consultando API de YouTube en lotes...", todosLosNuevosVideos.Count);
+                await ProcesarBatchGlobalAsync(todosLosNuevosVideos, cancellationToken);
+            }
+            else
+            {
+                _logger.LogInformation("No se encontraron videos nuevos en ningún canal. Tarea finalizada.");
+            }
         }
 
-        private async Task ProcesarBatchAsync(List<string> videoIds, string channelIdInfo, CancellationToken cancellationToken)
+        private async Task ProcesarBatchGlobalAsync(List<(string VideoId, string ChannelId)> videosAProcesar, CancellationToken cancellationToken)
         {
             try
             {
                 // La API de YouTube acepta hasta 50 IDs por request
-                var lotes = videoIds.Chunk(50);
+                var lotes = videosAProcesar.Chunk(50);
                 
                 foreach (var lote in lotes)
                 {
-                    string idsJuntos = string.Join(",", lote);
+                    string idsJuntos = string.Join(",", lote.Select(v => v.VideoId));
                     var videoRequest = _youtubeService.Videos.List("snippet,contentDetails,liveStreamingDetails");
                     videoRequest.Id = idsJuntos;
                     var videoResponse = await videoRequest.ExecuteAsync(cancellationToken);
 
                     var videosEncontrados = videoResponse.Items ?? new List<Google.Apis.YouTube.v3.Data.Video>();
 
-                    foreach (var videoId in lote)
+                    foreach (var videoItem in lote)
                     {
                         try
                         {
-                            var videoInfo = videosEncontrados.FirstOrDefault(v => v.Id == videoId);
+                            var videoInfo = videosEncontrados.FirstOrDefault(v => v.Id == videoItem.VideoId);
                             if (videoInfo != null)
                             {
-                                await ActualizarMongoParaVideoAsync(videoId, channelIdInfo, videoInfo);
+                                await ActualizarMongoParaVideoAsync(videoItem.VideoId, videoItem.ChannelId, videoInfo);
                             }
                             else
                             {
-                                _logger.LogWarning("No se encontraron detalles en la API de YouTube para el video {VideoId}.", videoId);
+                                _logger.LogWarning("No se encontraron detalles en la API de YouTube para el video {VideoId} (Canal {ChannelId}).", videoItem.VideoId, videoItem.ChannelId);
                             }
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Error procesando el video {VideoId} del canal {ChannelId}.", videoId, channelIdInfo);
+                            _logger.LogError(ex, "Error procesando el video {VideoId} del canal {ChannelId}.", videoItem.VideoId, videoItem.ChannelId);
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error grave procesando el batch de YouTube para el canal {ChannelId}.", channelIdInfo);
+                _logger.LogError(ex, "Error grave procesando el batch global de YouTube.");
             }
         }
 
