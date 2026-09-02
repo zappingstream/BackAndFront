@@ -1,30 +1,31 @@
-﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System;
-using ZappingStreamingIncomingVideos; // Tu namespace
+using System.Net.Http;
+using System.Threading.Tasks;
+using ZappingStreamingIncomingVideos;
 
-// 1. Leemos el entorno actual (quitamos el forzado a Development para que GitHub Actions pueda usar Production)
-var entorno = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
+Console.WriteLine("Iniciando aplicación (configuración por variables de entorno)...");
 
-using IHost host = Host.CreateDefaultBuilder(args)
-    .ConfigureAppConfiguration((hostingContext, config) =>
-    {
-        // 2. Limpiamos la magia por defecto y le decimos exactamente dónde buscar
-        config.Sources.Clear();
-
-        // AppDomain.CurrentDomain.BaseDirectory es infalible: apunta a la carpeta bin donde está el .exe
-        config.SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
-              .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-              .AddJsonFile($"appsettings.{entorno}.json", optional: true, reloadOnChange: true)
-              .AddEnvironmentVariables();
-    })
-    .ConfigureServices((hostContext, services) =>
-    {
-        services.AddHttpClient();
-        services.AddHostedService<ZappingStreamingIncomingVideos.ZappingStreamingIncomingVideos>();
-    })
+// 1. Cargar la configuración SOLAMENTE desde variables de entorno
+var config = new ConfigurationBuilder()
+    .AddEnvironmentVariables()
     .Build();
 
-Console.WriteLine($"Iniciando en entorno: {entorno}...");
-await host.RunAsync();
+// 2. Configurar el Logger manualmente
+using var loggerFactory = LoggerFactory.Create(builder =>
+{
+    builder.AddConfiguration(config.GetSection("Logging"));
+    builder.AddConsole();
+});
+var logger = loggerFactory.CreateLogger<ZappingStreamingIncomingVideos.ZappingStreamingIncomingVideos>();
+
+// 3. Crear el HttpClient manualmente
+using var httpClient = new HttpClient();
+
+// 4. Instanciar tu clase tradicionalmente con "new" y ejecutarla
+var worker = new ZappingStreamingIncomingVideos.ZappingStreamingIncomingVideos(httpClient, config, logger);
+
+await worker.ExecuteAsync();
+
+Console.WriteLine("Ejecución finalizada.");

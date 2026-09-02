@@ -112,24 +112,21 @@ namespace ZappingStreamingIncomingVideos
         public bool ToBeCut { get; set; } // <--- AGREGADO
     }
 
-    public class ZappingStreamingIncomingVideos : BackgroundService
+    public class ZappingStreamingIncomingVideos
     {
         private readonly HttpClient _httpClient;
         private readonly IMongoDatabase _database;
         private readonly YouTubeService _youtubeService;
         private readonly ILogger<ZappingStreamingIncomingVideos> _logger;
-        private readonly IHostApplicationLifetime _appLifetime;
         private readonly IMongoCollection<ZappingChannel> _channelsCollection;
 
         public ZappingStreamingIncomingVideos(
             HttpClient httpClient,
             IConfiguration configuration,
-            ILogger<ZappingStreamingIncomingVideos> logger,
-            IHostApplicationLifetime appLifetime)
+            ILogger<ZappingStreamingIncomingVideos> logger)
         {
             _httpClient = httpClient;
             _logger = logger;
-            _appLifetime = appLifetime;
 
             // Configuración de MongoDB
             string mongoUri = configuration["MongoDB:ConnectionString"];
@@ -147,7 +144,7 @@ namespace ZappingStreamingIncomingVideos
             });
         }
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        public async Task ExecuteAsync(CancellationToken stoppingToken = default)
         {
             try
             {
@@ -161,8 +158,7 @@ namespace ZappingStreamingIncomingVideos
             }
             finally
             {
-                _logger.LogInformation("Apagando la aplicación para finalizar el proceso...");
-                _appLifetime.StopApplication();
+                _logger.LogInformation("Proceso finalizado.");
             }
         }
 
