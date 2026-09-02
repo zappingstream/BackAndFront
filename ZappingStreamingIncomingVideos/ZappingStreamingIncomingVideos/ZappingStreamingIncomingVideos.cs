@@ -63,7 +63,15 @@ namespace ZappingStreamingIncomingVideos
         public Dictionary<string, UpcomingVideo> Upcoming { get; set; }
         public Dictionary<string, ActiveVideo> Actives { get; set; }
         public Dictionary<string, PastVideo> Past { get; set; }
+        public Dictionary<string, DiscardedVideo> Discarded { get; set; }
     }
+
+    public class DiscardedVideo
+    {
+        public string VideoId { get; set; }
+        public string PublishedAt { get; set; }
+    }
+
     public class PastVideo
     {
         public string VideoId { get; set; }
@@ -165,10 +173,10 @@ namespace ZappingStreamingIncomingVideos
         private async Task ProcesarVideosDesdeRSSAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("Obteniendo lista de canales desde MongoDB...");
-            
+
             // Obtenemos los canales de la colección 'channels'
             var canales = await _channelsCollection.Find(_ => true).ToListAsync(cancellationToken);
-            
+
             if (!canales.Any())
             {
                 _logger.LogWarning("La colección 'channels' está vacía. No hay canales para procesar.");
@@ -180,7 +188,7 @@ namespace ZappingStreamingIncomingVideos
             foreach (var canal in canales)
             {
                 if (cancellationToken.IsCancellationRequested) break;
-                
+
                 string channelId = canal.Id;
                 if (string.IsNullOrEmpty(channelId) || !channelId.StartsWith("UC")) continue;
 
@@ -223,7 +231,8 @@ namespace ZappingStreamingIncomingVideos
                             {
                                 bool yaExiste = (canal.Actives != null && canal.Actives.ContainsKey(videoId)) ||
                                                 (canal.Upcoming != null && canal.Upcoming.ContainsKey(videoId)) ||
-                                                (canal.Past != null && canal.Past.ContainsKey(videoId));
+                                                (canal.Past != null && canal.Past.ContainsKey(videoId)) ||
+                                                (canal.Discarded != null && canal.Discarded.ContainsKey(videoId));
                                 if (!yaExiste) nuevosVideos.Add(videoId);
                             }
                         }
@@ -278,7 +287,8 @@ namespace ZappingStreamingIncomingVideos
                                     {
                                         bool yaExiste = (canal.Actives != null && canal.Actives.ContainsKey(videoId)) ||
                                                         (canal.Upcoming != null && canal.Upcoming.ContainsKey(videoId)) ||
-                                                        (canal.Past != null && canal.Past.ContainsKey(videoId));
+                                                        (canal.Past != null && canal.Past.ContainsKey(videoId)) ||
+                                                        (canal.Discarded != null && canal.Discarded.ContainsKey(videoId));
                                         if (!yaExiste) nuevosVideos.Add(videoId);
                                     }
                                 }
@@ -307,7 +317,7 @@ namespace ZappingStreamingIncomingVideos
                 {
                     _logger.LogInformation("No se encontraron videos nuevos en {ChannelName}.", canal.ChannelName);
                 }
-                
+
                 await Task.Delay(500, cancellationToken); // Pequeño delay para no saturar
             }
 
@@ -328,7 +338,7 @@ namespace ZappingStreamingIncomingVideos
             {
                 // La API de YouTube acepta hasta 50 IDs por request
                 var lotes = videosAProcesar.Chunk(50);
-                
+
                 foreach (var lote in lotes)
                 {
                     string idsJuntos = string.Join(",", lote.Select(v => v.VideoId));
@@ -399,7 +409,8 @@ namespace ZappingStreamingIncomingVideos
                 canal = await _channelsCollection.Find(c =>
                     (c.Actives != null && c.Actives.ContainsKey(videoId)) ||
                     (c.Upcoming != null && c.Upcoming.ContainsKey(videoId)) ||
-                    (c.Past != null && c.Past.ContainsKey(videoId))
+                    (c.Past != null && c.Past.ContainsKey(videoId)) ||
+                    (c.Discarded != null && c.Discarded.ContainsKey(videoId))
                 ).FirstOrDefaultAsync();
             }
 
@@ -413,6 +424,7 @@ namespace ZappingStreamingIncomingVideos
             canal.Actives ??= new Dictionary<string, ActiveVideo>();
             canal.Upcoming ??= new Dictionary<string, UpcomingVideo>();
             canal.Past ??= new Dictionary<string, PastVideo>();
+            canal.Discarded ??= new Dictionary<string, DiscardedVideo>();
 
             bool estabaEnActivos = canal.Actives.ContainsKey(videoId);
             bool estabaEnUpcoming = canal.Upcoming.ContainsKey(videoId);
@@ -421,7 +433,17 @@ namespace ZappingStreamingIncomingVideos
             // ESCUDO: Descartar VOD/Reel completamente
             if (!esEnVivo && !esUpcoming && !estabaEnActivos && !estabaEnUpcoming && !estabaEnPast)
             {
-                _logger.LogInformation("VOD/Reel detectado en {ChannelName}. Ignorando completamente.", canal.ChannelName);
+                _logger.LogInformation("VOD/Reel detectado en {ChannelName}. Guardando en Discarded y descartando.", canal.ChannelName);
+
+                var discardedVideo = new DiscardedVideo
+                {
+                    VideoId = videoId,
+                    PublishedAt = publishedAt ?? sysTimeNow
+                };
+
+                var update = Builders<ZappingChannel>.Update.Set($"Discarded.{videoId}", discardedVideo);
+                await _channelsCollection.UpdateOneAsync(c => c.Id == canal.Id, update);
+
                 return;
             }
 

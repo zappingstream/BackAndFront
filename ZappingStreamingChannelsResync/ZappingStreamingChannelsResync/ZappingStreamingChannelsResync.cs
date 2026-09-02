@@ -11,7 +11,6 @@ using MongoDB.Driver;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
@@ -24,13 +23,7 @@ namespace ZappingStreamingDBService
 {
     [BsonIgnoreExtraElements]
     public class ChannelOriginItem
-    {
-        // En Mongo, el ID de YouTube ("UC...") será nuestra clave primaria _id
-        [MongoDB.Bson.Serialization.Attributes.BsonId]
-        [BsonRepresentation(BsonType.String)]
-        [JsonPropertyName("ChannelId")]
-        public string ChannelId { get; set; }
-
+    { // En Mongo, el ID de YouTube ("UC...") será nuestra clave primaria _id [MongoDB.Bson.Serialization.Attributes.BsonId] [BsonRepresentation(BsonType.String)] [JsonPropertyName("ChannelId")] public string ChannelId { get; set; }
         [BsonElement("title")]
         public string Title { get; set; }
 
@@ -40,6 +33,7 @@ namespace ZappingStreamingDBService
         [BsonElement("category")]
         public string Category { get; set; }
     }
+
     [BsonIgnoreExtraElements]
     public class ZappingChannel
     {
@@ -57,12 +51,21 @@ namespace ZappingStreamingDBService
         public string ChannelBannerUrl { get; set; }
         public string LastActivityAt { get; set; }
 
-
         // --- COLECCIONES ---
         public Dictionary<string, UpcomingVideo> Upcoming { get; set; }
         public Dictionary<string, ActiveVideo> Actives { get; set; }
         public Dictionary<string, PastVideo> Past { get; set; }
+
+        // --- NUEVO DICCIONARIO ---
+        public Dictionary<string, DiscardedVideo> Discarded { get; set; }
     }
+
+    public class DiscardedVideo
+    {
+        public string VideoId { get; set; }
+        public string PublishedAt { get; set; }
+    }
+
     public class PastVideo
     {
         public string VideoId { get; set; }
@@ -218,6 +221,7 @@ namespace ZappingStreamingDBService
                     Dictionary<string, UpcomingVideo> upcomingAnterior = null;
                     Dictionary<string, ActiveVideo> activesAnterior = null;
                     Dictionary<string, PastVideo> pastAnterior = null;
+                    Dictionary<string, DiscardedVideo> discardedAnterior = null;
 
                     if (canalesExistentes.TryGetValue(mongoKey, out var canalAnterior))
                     {
@@ -228,6 +232,7 @@ namespace ZappingStreamingDBService
                         upcomingAnterior = canalAnterior.Upcoming;
                         activesAnterior = canalAnterior.Actives;
                         pastAnterior = canalAnterior.Past;
+                        discardedAnterior = canalAnterior.Discarded;
                     }
 
                     string imageUrl = channelInfo.Snippet.Thumbnails.High?.Url
@@ -251,7 +256,8 @@ namespace ZappingStreamingDBService
 
                         Upcoming = upcomingAnterior,
                         Actives = activesAnterior,
-                        Past = pastAnterior
+                        Past = pastAnterior,
+                        Discarded = discardedAnterior
                     };
 
                     // Preparamos un Upsert (Si existe lo pisa, si no, lo inserta)
@@ -323,10 +329,10 @@ namespace ZappingStreamingDBService
 
                     var values = new FormUrlEncodedContent(new[]
                     {
-                        new KeyValuePair<string, string>("hub.mode", "subscribe"),
-                        new KeyValuePair<string, string>("hub.topic", $"https://www.youtube.com/xml/feeds/videos.xml?channel_id={str.ChannelId}"),
-                        new KeyValuePair<string, string>("hub.callback", "https://zappingstreamlivewebhook.onrender.com/webhook")
-                    });
+                    new KeyValuePair<string, string>("hub.mode", "subscribe"),
+                    new KeyValuePair<string, string>("hub.topic", $"https://www.youtube.com/xml/feeds/videos.xml?channel_id={str.ChannelId}"),
+                    new KeyValuePair<string, string>("hub.callback", "https://zappingstreamlivewebhook.onrender.com/webhook")
+                });
 
                     try
                     {
@@ -359,4 +365,3 @@ namespace ZappingStreamingDBService
             return Regex.Replace(key, @"[.#$\[\]]", "").Trim();
         }
     }
-}
