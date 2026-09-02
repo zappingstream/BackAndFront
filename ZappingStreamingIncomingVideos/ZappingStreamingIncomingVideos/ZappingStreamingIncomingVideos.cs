@@ -406,12 +406,10 @@ namespace ZappingStreamingIncomingVideos
             bool estabaEnUpcoming = canal.Upcoming.ContainsKey(videoId);
             bool estabaEnPast = canal.Past.ContainsKey(videoId);
 
-            // ESCUDO: Actividad por VOD/Reel
+            // ESCUDO: Descartar VOD/Reel completamente
             if (!esEnVivo && !esUpcoming && !estabaEnActivos && !estabaEnUpcoming && !estabaEnPast)
             {
-                _logger.LogInformation("Escudo activado: VOD/Reel detectado en {ChannelName}. Solo actualizo actividad.", canal.ChannelName);
-                var update = Builders<ZappingChannel>.Update.Set(c => c.LastActivityAt, sysTimeNow);
-                await _channelsCollection.UpdateOneAsync(c => c.Id == canal.Id, update);
+                _logger.LogInformation("VOD/Reel detectado en {ChannelName}. Ignorando completamente.", canal.ChannelName);
                 return;
             }
 
