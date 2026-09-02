@@ -23,7 +23,12 @@ namespace ZappingStreamingDBService
 {
     [BsonIgnoreExtraElements]
     public class ChannelOriginItem
-    { // En Mongo, el ID de YouTube ("UC...") será nuestra clave primaria _id [MongoDB.Bson.Serialization.Attributes.BsonId] [BsonRepresentation(BsonType.String)] [JsonPropertyName("ChannelId")] public string ChannelId { get; set; }
+    { // En Mongo, el ID de YouTube ("UC...") será nuestra clave primaria _id 
+        [MongoDB.Bson.Serialization.Attributes.BsonId]
+        [BsonRepresentation(BsonType.String)]
+        [JsonPropertyName("ChannelId")]
+        public string ChannelId { get; set; }
+
         [BsonElement("title")]
         public string Title { get; set; }
 
@@ -365,3 +370,4 @@ namespace ZappingStreamingDBService
             return Regex.Replace(key, @"[.#$\[\]]", "").Trim();
         }
     }
+}
