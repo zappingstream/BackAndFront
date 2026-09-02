@@ -33,7 +33,7 @@ export default async function handler(req, res) {
         try {
             const client = await getMongoClient();
             const db = client.db("zappingstreamdb");
-            const channels = await db.collection("channels").find({}).toArray();
+            const channels = await db.collection("channels").find({}, { projection: { Discarded: 0 } }).toArray();
             
             return res.status(200).json(channels);
         } catch (error) {
