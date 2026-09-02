@@ -207,6 +207,12 @@ namespace ZappingStreamingIncomingVideos
 
                         foreach (var entry in entries)
                         {
+                            var publishedStr = entry.Element(atom + "published")?.Value;
+                            if (DateTime.TryParse(publishedStr, out var pubDate) && pubDate.ToUniversalTime() < DateTime.UtcNow.Date.AddHours(-5))
+                            {
+                                continue; // Filtramos videos anteriores a ayer a las 19:00
+                            }
+
                             var linkElement = entry.Elements(atom + "link").FirstOrDefault(l => l.Attribute("rel")?.Value == "alternate");
                             string linkHref = linkElement?.Attribute("href")?.Value ?? "";
 
@@ -243,6 +249,12 @@ namespace ZappingStreamingIncomingVideos
                             {
                                 foreach (var item in items.EnumerateArray())
                                 {
+                                    string pubDateStr = item.TryGetProperty("pubDate", out var pdProp) ? pdProp.GetString() : null;
+                                    if (DateTime.TryParse(pubDateStr, out var pubDate) && pubDate.ToUniversalTime() < DateTime.UtcNow.Date.AddHours(-5))
+                                    {
+                                        continue; // Filtramos videos anteriores a ayer a las 19:00
+                                    }
+
                                     string linkHref = item.TryGetProperty("link", out var linkProp) ? linkProp.GetString() ?? "" : "";
                                     if (linkHref.Contains("/shorts/")) continue;
 
