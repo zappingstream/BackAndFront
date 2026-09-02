@@ -14,9 +14,9 @@ jobs:
         dotnet-version: '8.0.x'
     - name: Run Incoming Videos
       env:
-        YOUTUBE_APIKEY: ${{ secrets.YOUTUBE_APIKEY }}
-        FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
-        MONGODB_CONNECTIONSTRING: ${{ secrets.MONGODB_CONNECTIONSTRING }}
-        MONGODB_DATABASENAME: ${{ secrets.MONGODB_DATABASENAME }}
+         YouTube__ApiKey: ${{ secrets.YOUTUBE_APIKEY }}
+         Firebase__Secret: ${{ secrets.FIREBASE_SECRET }}
+         MongoDB__ConnectionString: ${{ secrets.MONGODB_CONNECTIONSTRING }}
+         MongoDB__DatabaseName: ${{ secrets.MONGODB_DATABASENAME }}
       # ¡Fíjate en el argumento "upcoming" al final!
       run: dotnet run --project ./ZappingStreamingIncomingVideos/ZappingStreamingIncomingVideos/ZappingStreamingIncomingVideos.csproj 
