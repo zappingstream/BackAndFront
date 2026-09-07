@@ -183,14 +183,15 @@ namespace ZappingStreamingIncomingVideos
                 return;
             }
 
-            var todosLosNuevosVideos = new List<(string VideoId, string ChannelId)>();
+            var todosLosNuevosVideos = new System.Collections.Concurrent.ConcurrentBag<(string VideoId, string ChannelId)>();
 
-            foreach (var canal in canales)
+            // Procesar canales en paralelo (máximo 10 a la vez) para correr más rápido
+            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 10, CancellationToken = cancellationToken };
+
+            await Parallel.ForEachAsync(canales, parallelOptions, async (canal, ct) =>
             {
-                if (cancellationToken.IsCancellationRequested) break;
-
                 string channelId = canal.Id;
-                if (string.IsNullOrEmpty(channelId) || !channelId.StartsWith("UC")) continue;
+                if (string.IsNullOrEmpty(channelId) || !channelId.StartsWith("UC")) return;
 
                 _logger.LogInformation("Procesando RSS del canal: {ChannelName} ({ChannelId})", canal.ChannelName, channelId);
 
@@ -199,14 +200,14 @@ namespace ZappingStreamingIncomingVideos
 
                 try
                 {
-                    var response = await _httpClient.GetAsync($"https://www.youtube.com/feeds/videos.xml?channel_id={channelId}", cancellationToken);
+                    var response = await _httpClient.GetAsync($"https://www.youtube.com/feeds/videos.xml?channel_id={channelId}", ct);
                     if (!response.IsSuccessStatusCode)
                     {
                         rssfalla = true;
                     }
                     else
                     {
-                        var feedXml = await response.Content.ReadAsStringAsync(cancellationToken);
+                        var feedXml = await response.Content.ReadAsStringAsync(ct);
                         var feedDoc = XDocument.Parse(feedXml);
                         XNamespace atom = "http://www.w3.org/2005/Atom";
                         XNamespace yt = "http://www.youtube.com/xml/schemas/2015";
@@ -248,10 +249,10 @@ namespace ZappingStreamingIncomingVideos
                     _logger.LogWarning("Falló lectura XML directa de {ChannelId}, intentando con alternativa JSON (rss2json)...", channelId);
                     try
                     {
-                        var jsonResponse = await _httpClient.GetAsync($"https://api.rss2json.com/v1/api.json?rss_url=https://www.youtube.com/feeds/videos.xml?channel_id={channelId}", cancellationToken);
+                        var jsonResponse = await _httpClient.GetAsync($"https://api.rss2json.com/v1/api.json?rss_url=https://www.youtube.com/feeds/videos.xml?channel_id={channelId}", ct);
                         if (jsonResponse.IsSuccessStatusCode)
                         {
-                            var jsonString = await jsonResponse.Content.ReadAsStringAsync(cancellationToken);
+                            var jsonString = await jsonResponse.Content.ReadAsStringAsync(ct);
                             using var jsonDoc = JsonDocument.Parse(jsonString);
 
                             if (jsonDoc.RootElement.TryGetProperty("items", out var items))
@@ -317,14 +318,14 @@ namespace ZappingStreamingIncomingVideos
                 {
                     _logger.LogInformation("No se encontraron videos nuevos en {ChannelName}.", canal.ChannelName);
                 }
+            });
 
-                await Task.Delay(500, cancellationToken); // Pequeño delay para no saturar
-            }
+            var videosAProcesar = todosLosNuevosVideos.ToList();
 
-            if (todosLosNuevosVideos.Any())
+            if (videosAProcesar.Any())
             {
-                _logger.LogInformation("Se encontraron un total de {Count} videos nuevos en todos los canales. Consultando API de YouTube en lotes...", todosLosNuevosVideos.Count);
-                await ProcesarBatchGlobalAsync(todosLosNuevosVideos, cancellationToken);
+                _logger.LogInformation("Se encontraron un total de {Count} videos nuevos en todos los canales. Consultando API de YouTube en lotes...", videosAProcesar.Count);
+                await ProcesarBatchGlobalAsync(videosAProcesar, cancellationToken);
             }
             else
             {
@@ -435,14 +436,13 @@ namespace ZappingStreamingIncomingVideos
             {
                 _logger.LogInformation("VOD/Reel detectado en {ChannelName}. Guardando en Discarded y descartando.", canal.ChannelName);
 
-                var discardedVideo = new DiscardedVideo
+                canal.Discarded[videoId] = new DiscardedVideo
                 {
                     VideoId = videoId,
                     PublishedAt = publishedAt ?? sysTimeNow
                 };
 
-                var update = Builders<ZappingChannel>.Update.Set($"Discarded.{videoId}", discardedVideo);
-                await _channelsCollection.UpdateOneAsync(c => c.Id == canal.Id, update);
+                await _channelsCollection.ReplaceOneAsync(c => c.Id == canal.Id, canal);
 
                 return;
             }
