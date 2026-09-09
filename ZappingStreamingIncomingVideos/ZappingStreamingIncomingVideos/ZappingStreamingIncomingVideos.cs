@@ -200,7 +200,8 @@ namespace ZappingStreamingIncomingVideos
 
                 try
                 {
-                    var response = await _httpClient.GetAsync($"https://www.youtube.com/feeds/videos.xml?channel_id={channelId}", ct);
+                    string cacheBuster = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+                    var response = await _httpClient.GetAsync($"https://www.youtube.com/feeds/videos.xml?channel_id={channelId}&_nocache={cacheBuster}", ct);
                     if (!response.IsSuccessStatusCode)
                     {
                         rssfalla = true;
@@ -217,7 +218,13 @@ namespace ZappingStreamingIncomingVideos
                         foreach (var entry in entries)
                         {
                             var publishedStr = entry.Element(atom + "published")?.Value;
-                            if (DateTime.TryParse(publishedStr, out var pubDate) && pubDate.ToUniversalTime() < DateTime.UtcNow.Date.AddHours(-5))
+                            var updatedStr = entry.Element(atom + "updated")?.Value;
+
+                            DateTime? pubDate = DateTime.TryParse(publishedStr, out var pDate) ? pDate : (DateTime?)null;
+                            DateTime? updDate = DateTime.TryParse(updatedStr, out var uDate) ? uDate : (DateTime?)null;
+                            var latestDate = (updDate > pubDate) ? updDate : (pubDate ?? updDate);
+
+                            if (latestDate.HasValue && latestDate.Value.ToUniversalTime() < DateTime.UtcNow.Date.AddHours(-5))
                             {
                                 continue; // Filtramos videos anteriores a ayer a las 19:00
                             }
@@ -228,13 +235,37 @@ namespace ZappingStreamingIncomingVideos
                             if (linkHref.Contains("/shorts/")) continue;
 
                             var videoId = entry.Element(yt + "videoId")?.Value;
+                            var xmlTitle = entry.Element(atom + "title")?.Value;
+
                             if (!string.IsNullOrEmpty(videoId))
                             {
-                                bool yaExiste = (canal.Actives != null && canal.Actives.ContainsKey(videoId)) ||
-                                                (canal.Upcoming != null && canal.Upcoming.ContainsKey(videoId)) ||
-                                                (canal.Past != null && canal.Past.ContainsKey(videoId)) ||
-                                                (canal.Discarded != null && canal.Discarded.ContainsKey(videoId));
-                                if (!yaExiste) nuevosVideos.Add(videoId);
+                                bool yaExiste = false;
+                                bool titleChanged = false;
+
+                                if (canal.Actives != null && canal.Actives.TryGetValue(videoId, out var activeVid))
+                                {
+                                    yaExiste = true;
+                                    if (xmlTitle != null && activeVid.Title != xmlTitle) titleChanged = true;
+                                }
+                                else if (canal.Upcoming != null && canal.Upcoming.TryGetValue(videoId, out var upcVid))
+                                {
+                                    yaExiste = true;
+                                    if (xmlTitle != null && upcVid.Title != xmlTitle) titleChanged = true;
+                                }
+                                else if (canal.Past != null && canal.Past.TryGetValue(videoId, out var pastVid))
+                                {
+                                    yaExiste = true;
+                                    if (xmlTitle != null && pastVid.Title != xmlTitle) titleChanged = true;
+                                }
+                                else if (canal.Discarded != null && canal.Discarded.ContainsKey(videoId))
+                                {
+                                    yaExiste = true;
+                                }
+
+                                if (!yaExiste || titleChanged)
+                                {
+                                    nuevosVideos.Add(videoId);
+                                }
                             }
                         }
                     }
@@ -249,7 +280,8 @@ namespace ZappingStreamingIncomingVideos
                     _logger.LogWarning("Falló lectura XML directa de {ChannelId}, intentando con alternativa JSON (rss2json)...", channelId);
                     try
                     {
-                        var jsonResponse = await _httpClient.GetAsync($"https://api.rss2json.com/v1/api.json?rss_url=https://www.youtube.com/feeds/videos.xml?channel_id={channelId}", ct);
+                        string cacheBuster = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+                        var jsonResponse = await _httpClient.GetAsync($"https://api.rss2json.com/v1/api.json?rss_url=https://www.youtube.com/feeds/videos.xml?channel_id={channelId}%26_nocache={cacheBuster}", ct);
                         if (jsonResponse.IsSuccessStatusCode)
                         {
                             var jsonString = await jsonResponse.Content.ReadAsStringAsync(ct);
@@ -260,7 +292,13 @@ namespace ZappingStreamingIncomingVideos
                                 foreach (var item in items.EnumerateArray())
                                 {
                                     string pubDateStr = item.TryGetProperty("pubDate", out var pdProp) ? pdProp.GetString() : null;
-                                    if (DateTime.TryParse(pubDateStr, out var pubDate) && pubDate.ToUniversalTime() < DateTime.UtcNow.Date.AddHours(-5))
+                                    string updatedStr = item.TryGetProperty("updated", out var udProp) ? udProp.GetString() : null;
+
+                                    DateTime? pubDate = DateTime.TryParse(pubDateStr, out var pDate) ? pDate : (DateTime?)null;
+                                    DateTime? updDate = DateTime.TryParse(updatedStr, out var uDate) ? uDate : (DateTime?)null;
+                                    var latestDate = (updDate > pubDate) ? updDate : (pubDate ?? updDate);
+
+                                    if (latestDate.HasValue && latestDate.Value.ToUniversalTime() < DateTime.UtcNow.Date.AddHours(-5))
                                     {
                                         continue; // Filtramos videos anteriores a ayer a las 19:00
                                     }
@@ -284,13 +322,37 @@ namespace ZappingStreamingIncomingVideos
                                         if (match.Success) videoId = match.Groups[1].Value;
                                     }
 
+                                    string jsonTitle = item.TryGetProperty("title", out var titleProp) ? titleProp.GetString() : null;
+
                                     if (!string.IsNullOrEmpty(videoId))
                                     {
-                                        bool yaExiste = (canal.Actives != null && canal.Actives.ContainsKey(videoId)) ||
-                                                        (canal.Upcoming != null && canal.Upcoming.ContainsKey(videoId)) ||
-                                                        (canal.Past != null && canal.Past.ContainsKey(videoId)) ||
-                                                        (canal.Discarded != null && canal.Discarded.ContainsKey(videoId));
-                                        if (!yaExiste) nuevosVideos.Add(videoId);
+                                        bool yaExiste = false;
+                                        bool titleChanged = false;
+
+                                        if (canal.Actives != null && canal.Actives.TryGetValue(videoId, out var activeVid))
+                                        {
+                                            yaExiste = true;
+                                            if (jsonTitle != null && activeVid.Title != jsonTitle) titleChanged = true;
+                                        }
+                                        else if (canal.Upcoming != null && canal.Upcoming.TryGetValue(videoId, out var upcVid))
+                                        {
+                                            yaExiste = true;
+                                            if (jsonTitle != null && upcVid.Title != jsonTitle) titleChanged = true;
+                                        }
+                                        else if (canal.Past != null && canal.Past.TryGetValue(videoId, out var pastVid))
+                                        {
+                                            yaExiste = true;
+                                            if (jsonTitle != null && pastVid.Title != jsonTitle) titleChanged = true;
+                                        }
+                                        else if (canal.Discarded != null && canal.Discarded.ContainsKey(videoId))
+                                        {
+                                            yaExiste = true;
+                                        }
+
+                                        if (!yaExiste || titleChanged)
+                                        {
+                                            nuevosVideos.Add(videoId);
+                                        }
                                     }
                                 }
                             }
