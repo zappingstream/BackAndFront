@@ -193,7 +193,9 @@ namespace ZappingStreamingIncomingVideos
                 string channelId = canal.Id;
                 if (string.IsNullOrEmpty(channelId) || !channelId.StartsWith("UC")) return;
 
-                _logger.LogInformation("Procesando RSS del canal: {ChannelName} ({ChannelId})", canal.ChannelName, channelId);
+                string playlistId = "UU" + channelId.Substring(2);
+
+                _logger.LogInformation("Procesando RSS del canal: {ChannelName} ({ChannelId}) usando Playlist {PlaylistId}", canal.ChannelName, channelId, playlistId);
 
                 var nuevosVideos = new List<string>();
                 bool rssfalla = false;
@@ -201,7 +203,7 @@ namespace ZappingStreamingIncomingVideos
                 try
                 {
                     string cacheBuster = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
-                    var response = await _httpClient.GetAsync($"https://www.youtube.com/feeds/videos.xml?channel_id={channelId}&_nocache={cacheBuster}", ct);
+                    var response = await _httpClient.GetAsync($"https://www.youtube.com/feeds/videos.xml?playlist_id={playlistId}&_nocache={cacheBuster}", ct);
                     if (!response.IsSuccessStatusCode)
                     {
                         rssfalla = true;
@@ -281,7 +283,7 @@ namespace ZappingStreamingIncomingVideos
                     try
                     {
                         string cacheBuster = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
-                        var jsonResponse = await _httpClient.GetAsync($"https://api.rss2json.com/v1/api.json?rss_url=https://www.youtube.com/feeds/videos.xml?channel_id={channelId}%26_nocache={cacheBuster}", ct);
+                        var jsonResponse = await _httpClient.GetAsync($"https://api.rss2json.com/v1/api.json?rss_url=https://www.youtube.com/feeds/videos.xml?playlist_id={playlistId}%26_nocache={cacheBuster}", ct);
                         if (jsonResponse.IsSuccessStatusCode)
                         {
                             var jsonString = await jsonResponse.Content.ReadAsStringAsync(ct);
