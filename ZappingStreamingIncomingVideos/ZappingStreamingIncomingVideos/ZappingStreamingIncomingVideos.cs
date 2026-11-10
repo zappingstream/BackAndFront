@@ -280,6 +280,7 @@ namespace ZappingStreamingIncomingVideos
                 if (rssfalla)
                 {
                     _logger.LogWarning("Falló lectura XML directa de {ChannelId}, intentando con alternativa JSON (rss2json)...", channelId);
+                    bool jsonFalla = false;
                     try
                     {
                         string cacheBuster = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
@@ -358,15 +359,34 @@ namespace ZappingStreamingIncomingVideos
                                     }
                                 }
                             }
+                            else
+                            {
+                                jsonFalla = true;
+                            }
                         }
                         else
                         {
                             _logger.LogError("La alternativa JSON también falló para {ChannelId} (Status: {StatusCode}).", channelId, jsonResponse.StatusCode);
+                            jsonFalla = true;
                         }
                     }
                     catch (Exception jsonEx)
                     {
                         _logger.LogError(jsonEx, "Error al procesar la alternativa JSON de {ChannelId}.", channelId);
+                        jsonFalla = true;
+                    }
+
+                    if (jsonFalla)
+                    {
+                        _logger.LogWarning("Falló la alternativa JSON de {ChannelId}, intentando con última alternativa (Scraping HTML)...", channelId);
+                        var videosScrapeados = await ExtraerVideosPorScrapingAsync(channelId, playlistId, canal, ct);
+                        foreach (var vid in videosScrapeados)
+                        {
+                            if (!nuevosVideos.Contains(vid))
+                            {
+                                nuevosVideos.Add(vid);
+                            }
+                        }
                     }
                 }
 
@@ -395,6 +415,209 @@ namespace ZappingStreamingIncomingVideos
             {
                 _logger.LogInformation("No se encontraron videos nuevos en ningún canal. Tarea finalizada.");
             }
+        }
+
+        private async Task<List<string>> ExtraerVideosPorScrapingAsync(string channelId, string playlistId, ZappingChannel canal, CancellationToken ct)
+        {
+            var resultado = new List<string>();
+            var urlsAIntentar = new[]
+            {
+                $"https://www.youtube.com/playlist?list={playlistId}&hl=es",
+                $"https://www.youtube.com/channel/{channelId}/streams?hl=es"
+            };
+
+            foreach (var url in urlsAIntentar)
+            {
+                try
+                {
+                    using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                    request.Headers.Add("Cookie", "CONSENT=YES+cb.20210328-17-p0.en+FX+410");
+                    request.Headers.Add("Accept-Language", "es-ES,es;q=0.9,en;q=0.8");
+
+                    var response = await _httpClient.SendAsync(request, ct);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        _logger.LogWarning("Scraping falló en {Url} para {ChannelId} (Status: {StatusCode}).", url, channelId, response.StatusCode);
+                        continue;
+                    }
+
+                    var html = await response.Content.ReadAsStringAsync(ct);
+                    var match = Regex.Match(html, @"var\s+ytInitialData\s*=\s*(\{.*?\});</script>", RegexOptions.Singleline);
+                    if (!match.Success)
+                    {
+                        match = Regex.Match(html, @"ytInitialData\s*=\s*(\{.*?\});", RegexOptions.Singleline);
+                    }
+
+                    var renderers = new List<JsonElement>();
+                    if (match.Success)
+                    {
+                        using var doc = JsonDocument.Parse(match.Groups[1].Value);
+                        RecolectarVideoRenderers(doc.RootElement, renderers, maxItems: 15);
+
+                        foreach (var renderer in renderers)
+                        {
+                            if (!renderer.TryGetProperty("videoId", out var vidProp)) continue;
+                            string videoId = vidProp.GetString() ?? "";
+                            if (string.IsNullOrEmpty(videoId)) continue;
+
+                            // Filtrar Shorts
+                            if (EsShortEnRenderer(renderer)) continue;
+
+                            // Filtrar videos antiguos (si tiene fecha de publicación relativa mayor a ~1 día)
+                            string? publishedTimeText = ExtraerTextoDePropiedad(renderer, "publishedTimeText");
+                            if (!string.IsNullOrEmpty(publishedTimeText) && EsVideoAntiguoPorTexto(publishedTimeText))
+                            {
+                                continue;
+                            }
+
+                            string? scrapedTitle = ExtraerTextoDePropiedad(renderer, "title");
+
+                            if (DebeProcesarVideo(canal, videoId, scrapedTitle) && !resultado.Contains(videoId))
+                            {
+                                resultado.Add(videoId);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Fallback por Regex directo sobre el HTML si cambia ytInitialData
+                        var regexMatches = Regex.Matches(html, @"""videoId"":""([a-zA-Z0-9_-]{11})""");
+                        foreach (Match m in regexMatches.Cast<Match>().Take(15))
+                        {
+                            string videoId = m.Groups[1].Value;
+                            if (DebeProcesarVideo(canal, videoId, null) && !resultado.Contains(videoId))
+                            {
+                                resultado.Add(videoId);
+                            }
+                        }
+                    }
+
+                    // Si la playlist ya nos devolvió renderers válidos, no hace falta pedir otra URL
+                    if (renderers.Count > 0)
+                    {
+                        break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error durante el scraping en {Url} para el canal {ChannelId}.", url, channelId);
+                }
+            }
+
+            return resultado;
+        }
+
+        private static void RecolectarVideoRenderers(JsonElement element, List<JsonElement> encontrados, int maxItems)
+        {
+            if (encontrados.Count >= maxItems) return;
+
+            if (element.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in element.EnumerateObject())
+                {
+                    if ((prop.Name == "playlistVideoRenderer" || prop.Name == "videoRenderer") && prop.Value.ValueKind == JsonValueKind.Object)
+                    {
+                        encontrados.Add(prop.Value.Clone());
+                        if (encontrados.Count >= maxItems) return;
+                    }
+                    else
+                    {
+                        RecolectarVideoRenderers(prop.Value, encontrados, maxItems);
+                        if (encontrados.Count >= maxItems) return;
+                    }
+                }
+            }
+            else if (element.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in element.EnumerateArray())
+                {
+                    RecolectarVideoRenderers(item, encontrados, maxItems);
+                    if (encontrados.Count >= maxItems) return;
+                }
+            }
+        }
+
+        private static bool EsShortEnRenderer(JsonElement renderer)
+        {
+            if (renderer.TryGetProperty("navigationEndpoint", out var nav))
+            {
+                if (nav.TryGetProperty("reelWatchEndpoint", out _)) return true;
+
+                if (nav.TryGetProperty("commandMetadata", out var cmdMeta) &&
+                    cmdMeta.TryGetProperty("webCommandMetadata", out var webMeta) &&
+                    webMeta.TryGetProperty("url", out var urlProp))
+                {
+                    string url = urlProp.GetString() ?? "";
+                    if (url.Contains("/shorts/")) return true;
+                }
+            }
+            return false;
+        }
+
+        private static string? ExtraerTextoDePropiedad(JsonElement renderer, string propertyName)
+        {
+            if (!renderer.TryGetProperty(propertyName, out var prop)) return null;
+
+            if (prop.TryGetProperty("simpleText", out var simpleProp))
+            {
+                return simpleProp.GetString();
+            }
+
+            if (prop.TryGetProperty("runs", out var runsProp) && runsProp.ValueKind == JsonValueKind.Array)
+            {
+                return string.Concat(runsProp.EnumerateArray()
+                    .Select(r => r.TryGetProperty("text", out var t) ? t.GetString() : ""));
+            }
+
+            return null;
+        }
+
+        private static bool EsVideoAntiguoPorTexto(string publishedText)
+        {
+            string lower = publishedText.ToLowerInvariant();
+
+            // Si menciona semanas, meses o años (ES / EN), es antiguo
+            if (Regex.IsMatch(lower, @"\b(semana|semanas|week|weeks|mes|meses|month|months|a[ñn]o|a[ñn]os|year|years)\b"))
+            {
+                return true;
+            }
+
+            // Si menciona 2 o más días (dejamos pasar "1 día" / "1 day" por la ventana de ayer a las 19:00 UTC)
+            var matchDias = Regex.Match(lower, @"(\d+)\s*(d[ií]a|d[ií]as|day|days)\b");
+            if (matchDias.Success && int.TryParse(matchDias.Groups[1].Value, out int dias) && dias >= 2)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool DebeProcesarVideo(ZappingChannel canal, string videoId, string? nuevoTitulo)
+        {
+            bool yaExiste = false;
+            bool titleChanged = false;
+
+            if (canal.Actives != null && canal.Actives.TryGetValue(videoId, out var activeVid))
+            {
+                yaExiste = true;
+                if (!string.IsNullOrEmpty(nuevoTitulo) && activeVid.Title != nuevoTitulo) titleChanged = true;
+            }
+            else if (canal.Upcoming != null && canal.Upcoming.TryGetValue(videoId, out var upcVid))
+            {
+                yaExiste = true;
+                if (!string.IsNullOrEmpty(nuevoTitulo) && upcVid.Title != nuevoTitulo) titleChanged = true;
+            }
+            else if (canal.Past != null && canal.Past.TryGetValue(videoId, out var pastVid))
+            {
+                yaExiste = true;
+                if (!string.IsNullOrEmpty(nuevoTitulo) && pastVid.Title != nuevoTitulo) titleChanged = true;
+            }
+            else if (canal.Discarded != null && canal.Discarded.ContainsKey(videoId))
+            {
+                yaExiste = true;
+            }
+
+            return !yaExiste || titleChanged;
         }
 
         private async Task ProcesarBatchGlobalAsync(List<(string VideoId, string ChannelId)> videosAProcesar, CancellationToken cancellationToken)
