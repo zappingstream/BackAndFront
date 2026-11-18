@@ -43,7 +43,7 @@ export const AppHeader = ({
                     <div className="filters-container">
                         <input
                             type="text"
-                            className={`search-input ${viewMode === 'grid' ? 'search-input-split' : ''}`}
+                            className="search-input"
                             placeholder="Buscar por canal..."
                             value={searchText}
                             onChange={(e) => onSearchChange(e.target.value)}
@@ -51,8 +51,8 @@ export const AppHeader = ({
                         {viewMode === 'grid' && (
                             <input
                                 type="text"
-                                className="search-input search-input-split"
-                                placeholder="Buscar por tranmisión/tema..."
+                                className="search-input"
+                                placeholder="Buscar por transmisión / tema..."
                                 value={videoSearchText}
                                 onChange={(e) => onVideoSearchChange(e.target.value)}
                             />

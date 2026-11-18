@@ -139,8 +139,13 @@ export const ScheduleGrid = ({
         if (header) {
             const updateHeight = () => setHeaderHeight(header.getBoundingClientRect().height);
             updateHeight();
+            const resizeObserver = new ResizeObserver(updateHeight);
+            resizeObserver.observe(header);
             window.addEventListener('resize', updateHeight);
-            return () => window.removeEventListener('resize', updateHeight);
+            return () => {
+                resizeObserver.disconnect();
+                window.removeEventListener('resize', updateHeight);
+            };
         }
     }, []);
 
@@ -285,6 +290,7 @@ export const ScheduleGrid = ({
                     top: headerHeight, 
                     zIndex: 60, 
                     backgroundColor: 'var(--bg-black)',
+                    paddingTop: '10px',
                     paddingBottom: '5px' 
                 }}
             >
