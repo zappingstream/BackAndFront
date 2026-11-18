@@ -143,7 +143,7 @@ export const ChannelCard = ({
     return (
         <div className="card-wrapper" style={cardStyle}>
             <div 
-                className={`channel-card ${isExpanded ? "expanded-card" : ""}`} 
+                className={`channel-card ${isLiveGroup ? "live-channel-card" : ""} ${isExpanded ? "expanded-card" : ""}`} 
                 tabIndex={0}
                 onClick={!isLiveGroup && !isExpanded ? () => abrirCanalOnStreams(channel) : undefined}
             >

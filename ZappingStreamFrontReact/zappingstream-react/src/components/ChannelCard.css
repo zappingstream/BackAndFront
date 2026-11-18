@@ -1,29 +1,35 @@
 .card-wrapper {
     flex: 0 0 auto;
-    min-height: 310px;
+    min-height: 295px;
     position: relative;
 }
 
 .channel-card {
-    background-color: var(--bg-dark);
-    border: 2px solid var(--accent-blue);
-    border-radius: 15px;
-    padding: 20px;
+    background: linear-gradient(180deg, #161c2a 0%, #111622 100%);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    padding: 16px 18px;
     display: flex;
     flex-direction: column;
-    gap: 15px;
-    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, background-color 0.2s ease-out, border-color 0.2s ease-out;
+    gap: 14px;
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
     width: 100%;
     position: relative;
     z-index: 1;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+.channel-card.live-channel-card {
+    border-color: rgba(56, 182, 255, 0.32);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.4), 0 0 16px rgba(56, 182, 255, 0.08);
 }
 
 .channel-card:focus:not(.expanded-card), .channel-card:hover:not(.expanded-card) {
-    background-color: #555;
-    border-color: var(--text-white);
-    transform: scale(1.02);
+    background: linear-gradient(180deg, #1c2436 0%, #151b29 100%);
+    border-color: var(--accent-blue);
+    transform: translateY(-4px);
     outline: none;
-    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5), 0 0 18px rgba(56, 182, 255, 0.22);
 }
 
 .expanded-card {
@@ -35,10 +41,10 @@
     max-height: 85vh;
     overflow-y: auto;
     z-index: 9999;
-    background-color: #1a1a1a;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 20px rgba(206, 241, 150, 0.4);
+    background: #141a26;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(56, 182, 255, 0.35);
     transform: translate(-50%, -50%);
-    border-color: var(--text-white);
+    border-color: var(--accent-blue);
     cursor: default;
 }
 
@@ -76,13 +82,14 @@
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
-    border: 1px solid var(--accent-blue);
-    box-shadow: 0 0 5px rgba(56, 182, 255, 0.5); /* Las sombras con alpha es mejor dejarlas o usar variables rgb independientes a futuro */
+    border: 1.5px solid rgba(56, 182, 255, 0.6);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .channel-title {
-    font-size: 1.4rem;
-    font-weight: bold;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     color: var(--text-white);
     white-space: nowrap;
     overflow: hidden;
@@ -96,30 +103,34 @@
 }
 
 .toggle-info-btn {
-    background-color: transparent;
+    background-color: rgba(56, 182, 255, 0.1);
     color: var(--accent-blue);
-    border: 1px solid var(--accent-blue);
-    padding: 5px 10px;
+    border: 1px solid rgba(56, 182, 255, 0.28);
+    padding: 5px 11px;
     border-radius: 8px;
     cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.2s;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: inherit;
+    transition: all 0.2s ease;
     flex-shrink: 0;
 }
 
 .toggle-info-btn:hover {
     background-color: var(--accent-blue);
-    color: var(--bg-black);
+    border-color: var(--accent-blue);
+    color: #06090e;
 }
 
 .channel-description {
     background-color: var(--bg-panel);
     padding: 15px;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    color: #ddd;
+    border-radius: 10px;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: #cbd5e1;
     border-left: 3px solid var(--accent-blue);
-    animation: slideDown 0.3s ease-out forwards;
+    animation: slideDown 0.25s ease-out forwards;
     cursor: default;
     max-height: 25vh;
     overflow-y: auto;
@@ -127,12 +138,12 @@
 }
 
 .city-tag {
-    font-weight: bold;
+    font-weight: 700;
     color: var(--accent-blue);
     margin-bottom: 8px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.06em;
 }
 
 @keyframes slideDown {
@@ -141,20 +152,21 @@
 }
 
 .last-activity-container {
-    margin-top: 5px;
+    margin-top: 2px;
     text-align: center;
 }
 
 .last-activity-text {
-    font-size: 0.8rem;
-    color: #aaa;
-    background-color: var(--bg-panel);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background-color: rgba(255, 255, 255, 0.03);
     padding: 4px 10px;
     border-radius: 6px;
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    border: 1px solid #333;
+    border: 1px solid var(--border-subtle);
 }
 
 .videos-horizontal-list {

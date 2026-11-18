@@ -10,9 +10,9 @@
 .days-rail {
     display: flex;
     overflow-x: auto;
-    gap: 12px;
+    gap: 10px;
     padding: 10px 0;
-    border-bottom: 2px solid #333;
+    border-bottom: 1px solid var(--border-subtle);
     cursor: grab;
     user-select: none;
     scrollbar-width: none;
@@ -28,27 +28,32 @@
 
 .day-btn {
     background: var(--bg-panel);
-    border: 1px solid #444;
-    color: var(--text-white);
-    padding: 10px 20px;
-    border-radius: 20px;
+    border: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+    padding: 8px 18px;
+    border-radius: 12px;
     cursor: pointer;
     min-width: max-content;
     text-align: center;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
     text-transform: capitalize;
-    font-size: 0.9rem;
+    font-size: 0.86rem;
+    font-weight: 600;
+    font-family: inherit;
 }
 
-.day-btn:hover {
-    border-color: var(--accent-blue);
+.day-btn:hover:not(.selected) {
+    border-color: var(--border-strong);
+    color: var(--text-white);
+    background: rgba(255, 255, 255, 0.06);
 }
 
 .day-btn.selected {
     background: var(--accent-blue);
-    color: var(--bg-black);
-    font-weight: bold;
+    color: #06090e;
+    font-weight: 700;
     border-color: var(--accent-blue);
+    box-shadow: 0 2px 12px rgba(56, 182, 255, 0.35);
 }
 
 .back-to-now-btn {
@@ -84,7 +89,9 @@
 
 .timeline-row {
     display: flex;
-    margin-bottom: 20px;
+    margin-bottom: 18px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     position: relative;
     width: 100%;
 }
@@ -94,7 +101,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    padding-top: 15px;
+    padding-top: 12px;
     width: 100px;
     flex-shrink: 0;
     gap: 8px;
@@ -106,37 +113,38 @@
 }
 
 .sidebar-channel-logo {
-    width: 50px;
-    height: 50px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid var(--accent-blue);
+    border: 1.5px solid rgba(56, 182, 255, 0.55);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
 }
 
 .sidebar-channel-name {
-    font-weight: bold;
-    font-size: 0.85rem;
-    color: var(--accent-blue);
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: var(--text-white);
     text-align: center;
     word-break: break-word;
     line-height: 1.2;
 }
 
 .time-badge {
-    background: var(--bg-panel);
-    color: var(--text-white);
-    border: 2px solid #555;
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-weight: bold;
-    font-size: 1rem;
+    background: rgba(56, 182, 255, 0.14);
+    color: var(--accent-blue);
+    border: 1px solid rgba(56, 182, 255, 0.35);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.75rem;
     z-index: 2;
 }
 
 .inactive-time-badge {
-    background: var(--bg-dark);
-    color: #888;
-    border-color: #444;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-muted);
+    border-color: var(--border-subtle);
 }
 
 .track-scroll-wrapper .scroll-arrow {
@@ -145,11 +153,12 @@
 
 .epg-events-track {
     display: flex;
-    gap: 15px;
+    gap: 14px;
     align-items: stretch;
     overflow-x: auto;
     flex-grow: 1;
     min-width: 0;
+    padding-top: 4px;
     padding-bottom: 10px;
     position: relative;
     cursor: grab;
@@ -172,30 +181,36 @@
 }
 
 .epg-card-inner {
-    background-color: var(--bg-dark);
-    border: 2px solid var(--accent-blue);
-    border-radius: 12px;
+    background: linear-gradient(180deg, #161c2a 0%, #111622 100%);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
     height: 100%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease, border-color 0.22s ease;
     cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.epg-card.is-live-card .epg-card-inner {
+    border-color: rgba(56, 182, 255, 0.45);
+    box-shadow: 0 4px 20px rgba(56, 182, 255, 0.16);
 }
 
 .epg-card-inner:hover {
-    transform: scale(1.02);
-    box-shadow: 0 0 10px rgba(56, 182, 255, 0.5);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5), 0 0 16px rgba(56, 182, 255, 0.22);
     z-index: 5;
-    border-color: var(--text-white);
+    border-color: var(--accent-blue);
 }
 
 .epg-card .image-container {
     width: 100% !important;
-    height: 120px;
+    height: 124px;
     flex-shrink: 0;
     border-radius: 0;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 .epg-card .event-info {
