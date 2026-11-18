@@ -18,6 +18,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [searchText, setSearchText] = useState("");
+  const [videoSearchText, setVideoSearchText] = useState("");
   const [sortBy, setSortBy] = useState("actividad");
   const [expandedChannels, setExpandedChannels] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'cards' | 'grid'>('cards');
@@ -148,6 +149,8 @@ export default function App() {
       <AppHeader
         searchText={searchText}
         onSearchChange={setSearchText}
+        videoSearchText={videoSearchText}
+        onVideoSearchChange={setVideoSearchText}
         onRefresh={handleRefresh}
         isRefreshing={isLoading || isFetching}
         viewMode={viewMode}
@@ -191,6 +194,7 @@ export default function App() {
       {showAppContent && viewMode === 'grid' && (
         <ScheduleGrid
           channels={filteredChannels}
+          videoSearchText={videoSearchText}
           navigateYouTube={navigateYouTube}
           expandedChannels={expandedChannels}
           toggleInfo={toggleInfo}

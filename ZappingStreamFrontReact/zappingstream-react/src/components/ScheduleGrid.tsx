@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, type RefObject } from 'react';
 import type { Channel, UpcomingVideo, ActiveVideo } from '../models/Channel';
-import { getFreshImage } from '../index';
+import { getFreshImage, removeDiacritics } from '../index';
 import { VideoCard } from './VideoCard';
 import { ChannelCard } from './ChannelCard';
 import { useHorizontalScroll } from '../hooks/useHorizontalScroll';
@@ -95,6 +95,7 @@ const EpgTrack = ({ row, navigateYouTube, onVideoError }: { row: any, navigateYo
 
 interface ScheduleGridProps {
     channels: Channel[];
+    videoSearchText: string;
     navigateYouTube: (url: string) => void;
     expandedChannels: Set<string>;
     toggleInfo: (channelName: string) => void;
@@ -107,6 +108,7 @@ interface ScheduleGridProps {
 
 export const ScheduleGrid = ({
     channels,
+    videoSearchText,
     navigateYouTube,
     expandedChannels,
     toggleInfo,
@@ -211,15 +213,26 @@ export const ScheduleGrid = ({
         return { channelRows: rows };
     }, [channels, selectedDate]);
 
-    // Filtramos las filas: descartamos videos fallidos y ocultamos la fila si se quedó sin videos o si el logo del canal falló
+    // Filtramos las filas: descartamos videos fallidos, aplicamos filtro por palabra clave de video y ocultamos la fila si se quedó sin videos o si el logo del canal falló
     const visibleRows = useMemo(() => {
+        const cleanVideoSearch = videoSearchText.trim()
+            ? removeDiacritics(videoSearchText.trim()).toLowerCase()
+            : "";
+
         return channelRows
             .map(row => ({
                 ...row,
-                events: row.events.filter(ev => ev.ThumbnailUrl && !failedVideos.has(ev.VideoId))
+                events: row.events.filter(ev => {
+                    if (!ev.ThumbnailUrl || failedVideos.has(ev.VideoId)) return false;
+                    if (cleanVideoSearch) {
+                        const cleanTitle = removeDiacritics(ev.Title || "").toLowerCase();
+                        return cleanTitle.includes(cleanVideoSearch);
+                    }
+                    return true;
+                })
             }))
             .filter(row => row.events.length > 0 && !failedChannels.has(row.channel.ChannelName));
-    }, [channelRows, failedVideos, failedChannels]);
+    }, [channelRows, failedVideos, failedChannels, videoSearchText]);
 
     // Auto-scroll al día actual y alinear los vivos
     useEffect(() => {
@@ -295,7 +308,11 @@ export const ScheduleGrid = ({
                 className="epg-container"
             >
                 {!hasAnyContent ? (
-                    <div className="no-events-msg">No hay transmisiones programadas para este día.</div>
+                    <div className="no-events-msg">
+                        {videoSearchText.trim()
+                            ? `No se encontraron videos con "${videoSearchText.trim()}" para este día.`
+                            : "No hay transmisiones programadas para este día."}
+                    </div>
                 ) : (
                     <>
                         {visibleRows.map((row) => {

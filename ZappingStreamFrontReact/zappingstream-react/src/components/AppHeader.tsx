@@ -4,6 +4,8 @@ import logo from '../assets/logo.png';
 interface AppHeaderProps {
     searchText: string;
     onSearchChange: (text: string) => void;
+    videoSearchText: string;
+    onVideoSearchChange: (text: string) => void;
     onRefresh: () => void;
     isRefreshing: boolean;
     viewMode: 'cards' | 'grid';
@@ -19,6 +21,8 @@ interface AppHeaderProps {
 export const AppHeader = ({
     searchText,
     onSearchChange,
+    videoSearchText,
+    onVideoSearchChange,
     viewMode,
     onViewModeChange,
     selectedProvince,
@@ -35,16 +39,25 @@ export const AppHeader = ({
                     <img src={logo} alt="Zapping Stream" className="app-logo" />
                 </header>
 
-                <div className="header-controls">                  
+                <div className="header-controls">
                     <div className="filters-container">
                         <input
                             type="text"
-                            className="search-input"
+                            className={`search-input ${viewMode === 'grid' ? 'search-input-split' : ''}`}
                             placeholder="Buscar por canal..."
                             value={searchText}
                             onChange={(e) => onSearchChange(e.target.value)}
                         />
-                        <select 
+                        {viewMode === 'grid' && (
+                            <input
+                                type="text"
+                                className="search-input search-input-split"
+                                placeholder="Buscar por tranmisión/tema..."
+                                value={videoSearchText}
+                                onChange={(e) => onVideoSearchChange(e.target.value)}
+                            />
+                        )}
+                        <select
                             className="filter-select"
                             value={selectedProvince}
                             onChange={(e) => onProvinceChange(e.target.value)}
@@ -54,7 +67,7 @@ export const AppHeader = ({
                                 <option key={prov} value={prov}>{prov}</option>
                             ))}
                         </select>
-                        <select 
+                        <select
                             className="filter-select"
                             value={selectedCity}
                             onChange={(e) => onCityChange(e.target.value)}
@@ -68,13 +81,13 @@ export const AppHeader = ({
                     </div>
 
                     <div className="view-mode-container">
-                        <button 
+                        <button
                             className={`view-mode-btn ${viewMode === 'cards' ? 'active' : ''}`}
                             onClick={() => onViewModeChange('cards')}
                         >
                             Canales
                         </button>
-                        <button 
+                        <button
                             className={`view-mode-btn ${viewMode === 'grid' ? 'active' : ''}`}
                             onClick={() => onViewModeChange('grid')}
                         >
